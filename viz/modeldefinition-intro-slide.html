@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A Model Is a Typed Operator — Intro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  /* Same palette as modeldefinition-slide so overlay/swap is seamless */
+  :root {
+    --bg:           #0A0B0D;
+    --paper:        #14171C;
+    --paper-warm:   #1C2027;
+    --paper-sunken: #08090B;
+    --ink:          #FFFFFF;
+    --text-body:    #D5D9E1;
+    --muted:        #8A93A0;
+    --rule:         #242932;
+    --rule-strong:  #3A4150;
+
+    --accent:       #EC4899;
+    --accent-soft:  rgba(236, 72, 153, 0.18);
+
+    --c-input:   #4DD0E1;
+    --c-output:  #F97316;
+    --c-op:      #FFFFFF;
+    --c-data:    #2DE2A0;
+    --c-compute: #1A8E64;
+    --c-config:  #F4D03F;
+    --c-router:  #A855F7;
+    --c-version: #EC4899;
+
+    --serif: "Playfair Display", "Times New Roman", Georgia, serif;
+    --sans:  "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+    --mono:  "JetBrains Mono", "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* Stage and canvas — identical to modeldefinition-slide so the two overlap pixel-for-pixel */
+  .stage {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1920px;
+    height: 1080px;
+    margin-left: -960px;
+    margin-top: -540px;
+    transform-origin: center center;
+    background: var(--bg);
+  }
+  .container {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+  }
+  .panel.atom {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+  .panel.atom .atom-grid {
+    flex: 1;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .panel.atom .atom-svg-wrap {
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+  }
+  .panel.atom .atom-svg-wrap svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Flow animations — identical timings & dash periods as modeldefinition-slide */
+  @keyframes flow-fast-anim { to { stroke-dashoffset: -30; } }
+  @keyframes flow-slow-anim { to { stroke-dashoffset: -24; } }
+  .flow-fast { stroke-dasharray: 6 4;  animation: flow-fast-anim 1.6s linear infinite; }
+  .flow-slow { stroke-dasharray: 6 6;  animation: flow-slow-anim 4.5s linear infinite; }
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="canvas" id="canvas">
+<div class="container">
+
+  <div class="panel atom">
+    <div class="atom-grid">
+      <div class="atom-svg-wrap">
+
+        <!--
+          IDENTICAL viewBox to modeldefinition-slide.html (0 30 760 320) so all
+          coordinates map 1:1 between this slide and the detailed version.
+          When toggled in sequence, every shape stays put — only the *contents*
+          of those shapes change.
+
+          Position contract (matches modeldefinition-slide exactly):
+            X-box       40 140 → 188 240   (148 × 100)
+            Operator   280 140 → 504 240   (224 × 100)
+            Y-box      580 140 → 728 240   (148 × 100)
+            Env strip  286  52 → 492  86   (206 × 34, the envelope of the 3 Ω chips)
+            Version    centered on the operator's bottom-right corner
+            x→ƒ arrow  190 190 → 278 190
+            ƒ→y arrow  504 190 → 572 190
+            Ω↓ arrow   389  86 → 389 140 (vertical center of env stack)
+        -->
+        <svg viewBox="0 30 760 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Simplified typed operator: input X, environment, operator f with version, output Y">
+
+          <defs>
+            <marker id="arrInput" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-input)"/>
+            </marker>
+            <marker id="arrOutput" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-output)"/>
+            </marker>
+            <marker id="arrData" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-data)"/>
+            </marker>
+
+            <pattern id="diag-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M40,0 L0,0 L0,40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            </pattern>
+          </defs>
+
+          <!-- subtle drafting-grid background, identical to detailed slide -->
+          <rect x="0" y="0" width="760" height="350" fill="url(#diag-grid)"/>
+
+          <!-- ============== INPUT  X ============== -->
+          <g>
+            <rect x="40" y="140" width="148" height="100"
+                  fill="var(--c-input)" stroke="var(--c-input)" stroke-width="1.2"/>
+            <text x="114" y="190"
+                  text-anchor="middle" dominant-baseline="central"
+                  font-family="Playfair Display, Georgia, serif"
+                  font-size="64" font-weight="700"
+                  fill="#0A0B0D">X</text>
+          </g>
+
+          <!-- ============== ENVIRONMENT (envelope of the 3 Ω chips) ============== -->
+          <g>
+            <rect x="286" y="52" width="206" height="34"
+                  fill="var(--c-data)" stroke="var(--c-data)" stroke-width="1"/>
+            <text x="389" y="69"
+                  text-anchor="middle" dominant-baseline="central"
+                  font-family="Source Sans 3, Helvetica, Arial, sans-serif"
+                  font-size="15" font-weight="700"
+                  letter-spacing="0.06em"
+                  fill="#0A0B0D">ENVIRONMENT</text>
+          </g>
+
+          <!-- ============== Ω → ƒ stream ============== -->
+          <line x1="389" y1="86" x2="389" y2="140"
+                stroke="var(--c-data)" stroke-width="1.6"
+                marker-end="url(#arrData)"
+                class="flow-slow"/>
+
+          <!-- ============== THE OPERATOR ============== -->
+          <g transform="translate(280, 140)">
+            <!-- subtle halo, same offset as detailed version -->
+            <rect x="-4" y="-4" width="232" height="108" fill="rgba(255,255,255,0.04)"/>
+            <!-- the box -->
+            <rect x="0" y="0" width="224" height="100"
+                  fill="var(--paper-warm)" stroke="var(--c-op)" stroke-width="1.6"/>
+            <!-- the glyph -->
+            <text x="112" y="55"
+                  text-anchor="middle" dominant-baseline="central"
+                  font-family="Playfair Display, Georgia, serif"
+                  font-size="56" font-style="italic" font-weight="700"
+                  fill="var(--c-op)">ƒ</text>
+          </g>
+
+          <!-- ============== x → ƒ arrow ============== -->
+          <line x1="190" y1="190" x2="278" y2="190"
+                stroke="var(--c-input)" stroke-width="2"
+                marker-end="url(#arrInput)"
+                class="flow-fast"/>
+
+          <!-- ============== ƒ → y arrow ============== -->
+          <line x1="504" y1="190" x2="572" y2="190"
+                stroke="var(--c-output)" stroke-width="2"
+                marker-end="url(#arrOutput)"
+                class="flow-fast"/>
+
+          <!-- ============== OUTPUT  Y ============== -->
+          <g>
+            <rect x="580" y="140" width="148" height="100"
+                  fill="var(--c-output)" stroke="var(--c-output)" stroke-width="1.2"/>
+            <text x="654" y="190"
+                  text-anchor="middle" dominant-baseline="central"
+                  font-family="Playfair Display, Georgia, serif"
+                  font-size="64" font-weight="700"
+                  fill="#0A0B0D">Y</text>
+          </g>
+
+          <!-- ============== VERSION (sits over the operator's bottom-right,
+               centred on the same spot as the v=7 stamp in the detailed slide) ============== -->
+          <g>
+            <rect x="430" y="222" width="140" height="36"
+                  fill="var(--c-version)" stroke="var(--c-version)" stroke-width="1"/>
+            <text x="500" y="240"
+                  text-anchor="middle" dominant-baseline="central"
+                  font-family="Source Sans 3, Helvetica, Arial, sans-serif"
+                  font-size="15" font-weight="700"
+                  letter-spacing="0.08em"
+                  fill="#0A0B0D">VERSION</text>
+          </g>
+
+        </svg>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<script>
+  // identical fit() to modeldefinition-slide so transforms match
+  (function() {
+    var canvas = document.getElementById('canvas');
+    function fit() {
+      var sx = window.innerWidth  / 1920;
+      var sy = window.innerHeight / 1080;
+      var s  = Math.min(sx, sy);
+      canvas.style.transform = 'scale(' + s + ')';
+    }
+    window.addEventListener('resize', fit);
+    fit();
+  })();
+</script>
+</body>
+</html>

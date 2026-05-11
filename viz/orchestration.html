@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orchestration — placeholder</title>
+<style>
+  :root {
+    --bg:        #0A0B0D;
+    --bg-card:   #14171C;
+    --border:    #2DE2A0;
+    --text:      #FFFFFF;
+    --muted:     #8A93A0;
+    --mint:      #2DE2A0;
+    --mono:      "JetBrains Mono", "Menlo", "Consolas", monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    overflow: hidden;
+  }
+  .frame {
+    position: absolute;
+    inset: 16px;
+    border: 2px dashed var(--mint);
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+  }
+  .tag {
+    font-size: 14px;
+    letter-spacing: 0.36em;
+    color: var(--mint);
+    font-weight: 700;
+  }
+  .hint {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .path {
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="tag">[ HTML &middot; ORCHESTRATION DIAGRAM ]</div>
+    <div class="hint">What an orchestration between these objects can look like.</div>
+    <div class="path">viz/orchestration.html</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>When the Fix Hurts More Than the Wound</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Dark Domino palette — only colors swapped, structure preserved */
+    --bg: #0A0B0D;
+    --paper: #14171C;
+    --ink: #FFFFFF;
+    --muted: #8A93A0;
+    --rule: #242932;
+    --rule-strong: #404754;
+    --sun: #F4D03F;                       /* yellow */
+    --sun-glow: rgba(244, 208, 63, 0.32);
+    --earth: #4DD0E1;                     /* cyan */
+    --moon: #6B7280;
+    --jupiter: #EC4899;                   /* hot pink */
+    --jupiter-soft: rgba(236, 72, 153, 0.55);
+    --orbit: #2C313B;
+    --orbit-soft: #1C2027;
+    --accent: #2DE2A0;                    /* mint */
+    --serif: "Playfair Display", "Times New Roman", Georgia, serif;
+    --sans: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    padding: 20px 20px 36px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 1280px; margin: 0 auto; }
+
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: clamp(22px, 2.6vw, 32px);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .dek {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(14px, 1.3vw, 16px);
+    color: #D5D9E1;
+    max-width: 880px;
+    margin: 0 0 16px;
+    line-height: 1.4;
+  }
+
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 560px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 12px 14px 14px;
+  }
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    gap: 12px;
+  }
+  .panel-title {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.1;
+  }
+  .panel-sub {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .canvas-wrap {
+    position: relative;
+    width: min(100%, 58vh);
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
+    background: #14171C;
+    border: 1px solid var(--rule);
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .canvas-caption {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    background: rgba(20, 23, 28, 0.85);
+    padding: 4px 8px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #B5BAC4;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block; flex-shrink: 0;
+  }
+  .swatch.line {
+    width: 14px; height: 0; border-top: 2px dashed var(--orbit); border-radius: 0;
+  }
+  .swatch.trace {
+    width: 14px; height: 0; border-top: 2px solid var(--jupiter-soft); border-radius: 0;
+  }
+
+  .controls {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px 22px;
+    margin-bottom: 18px;
+  }
+  .control { display: flex; flex-direction: column; gap: 6px; }
+  .control-label {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .control-value {
+    font-family: var(--serif);
+    font-size: 18px;
+    color: var(--ink);
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--rule-strong);
+    outline: none;
+    margin: 6px 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ink);
+    cursor: pointer;
+    border: 0;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ink);
+    cursor: pointer;
+    border: 0;
+  }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    font-family: var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 9px 14px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  button.secondary {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  button:hover { opacity: 0.82; }
+
+  .notes {
+    border-top: 2px solid var(--ink);
+    padding-top: 18px;
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
+    color: #D5D9E1;
+    column-count: 2;
+    column-gap: 36px;
+    column-rule: 1px solid var(--rule);
+  }
+  @media (max-width: 760px) { .notes { column-count: 1; } }
+  .notes p { margin: 0 0 12px; }
+  .notes strong {
+    font-family: var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 700;
+    display: inline-block;
+    margin-right: 4px;
+  }
+  .notes em { color: var(--accent); font-style: italic; }
+
+  .byline {
+    font-family: var(--sans);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+
+  /* ---------- IFRAME-EMBED MODE ----------
+     The page is also served as an embedded iframe in the slide deck. Hide
+     the article chrome (header, eyebrow, dek, controls, notes, byline) so
+     only the two side-by-side visualizations show. The interactive controls
+     remain functional via keyboard if needed.
+  */
+  body { padding: 14px 14px 8px; }
+  .eyebrow, h1, .dek, .controls, .notes, .byline { display: none !important; }
+  .panels { margin-bottom: 0; gap: 14px; }
+  .canvas-wrap { width: 100% !important; aspect-ratio: 1 / 1; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="eyebrow">An Illustrated Reflection</div>
+  <h1>When the <em>Fix</em> Hurts More Than the Wound</h1>
+  <p class="dek">There comes a point in any explanation where you have to ask whether you are answering the question or only adding to it.</p>
+
+  <div class="panels">
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">The Geocentric View</div>
+        <div class="panel-sub">Earth at the center</div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="geo"></canvas>
+        <div class="canvas-caption">Earth at center · Jupiter on a deferent + epicycle</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background:var(--earth)"></span>Earth</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--moon)"></span>Moon</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--sun)"></span>Sun</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--jupiter)"></span>Jupiter</div>
+        <div class="legend-item"><span class="swatch trace"></span>Apparent path</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">The Heliocentric View</div>
+        <div class="panel-sub">Sun at the center</div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="helio"></canvas>
+        <div class="canvas-caption">Sun at center · circular orbits</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background:var(--sun)"></span>Sun</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--earth)"></span>Earth</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--moon)"></span>Moon</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--jupiter)"></span>Jupiter</div>
+        <div class="legend-item"><span class="swatch line"></span>Orbit</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control">
+      <div class="control-label"><span>Playback</span></div>
+      <div class="btn-row">
+        <button id="playBtn">Pause</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+      </div>
+    </div>
+    <div class="control">
+      <div class="control-label"><span>Speed</span><span class="control-value" id="speedVal">1×</span></div>
+      <input type="range" id="speed" min="0" max="11" step="1" value="2" />
+    </div>
+    <div class="control">
+      <div class="control-label"><span>Period ratio · Earth : Jupiter</span><span class="control-value" id="ratioVal">12 : 1</span></div>
+      <input type="range" id="ratio" min="2" max="20" step="1" value="12" />
+    </div>
+    <div class="control">
+      <div class="control-label"><span>Epicycle orders</span><span class="control-value" id="ordersVal">1st order</span></div>
+      <input type="range" id="orders" min="1" max="10" step="1" value="1" />
+    </div>
+    <div class="control">
+      <div class="control-label"><span>Epicycle width</span><span class="control-value" id="epicycleScaleVal">1.00×</span></div>
+      <input type="range" id="epicycleScale" min="0.3" max="3.0" step="0.05" value="1" />
+    </div>
+  </div>
+
+  <div class="notes">
+    <p><strong>The puzzle.</strong> What you see depends on where you stand. From here, most planets drift steadily eastward across the stars, night after night. But for several weeks every so often, one of them will stop, reverse, trace a small loop, and resume its march east. We call this <em>retrograde motion</em>. From our perspective, the model gets more complicated.</p>
+    <p><strong>The fix.</strong> Iterate. Add more, smaller circles to make up for the errors. But there is no harder method to leave behind than one that works, so every imperfection becomes another correction. Another circle. Each refinement looks like progress. Each is a small truth that keeps the larger one from being known.</p>
+    <p><strong>The flip.</strong> Question your foundational assumptions. The planets orbit the Sun, not the Earth. The corrective epicycles were a red herring, distracting us from a deeper ground truth. Planets don't loop. Some just orbit the Sun faster than others. It's simpler than it seems.</p>
+    <p><strong>The point.</strong> You can optimize in a local minimum indefinitely. The fix is rarely a better epicycle. It comes earlier. When the corrections become painful, you stop adding circles and reconsider the ground truth. The simplest explanation is almost always the right one. Ground truth should clarify, not complicate.</p>
+  </div>
+
+  <div class="byline">An Illustration · Cowork Studio</div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const helio = document.getElementById("helio");
+  const geo = document.getElementById("geo");
+  const ctxH = helio.getContext("2d");
+  const ctxG = geo.getContext("2d");
+
+  // Read CSS color tokens so JS and CSS stay in sync.
+  const css = getComputedStyle(document.documentElement);
+  const C = {
+    sun: css.getPropertyValue("--sun").trim(),
+    sunGlow: css.getPropertyValue("--sun-glow").trim(),
+    earth: css.getPropertyValue("--earth").trim(),
+    moon: css.getPropertyValue("--moon").trim(),
+    jupiter: css.getPropertyValue("--jupiter").trim(),
+    jupiterSoft: css.getPropertyValue("--jupiter-soft").trim(),
+    orbit: css.getPropertyValue("--orbit").trim(),
+    orbitSoft: css.getPropertyValue("--orbit-soft").trim(),
+    ink: css.getPropertyValue("--ink").trim(),
+    muted: css.getPropertyValue("--muted").trim(),
+    rule: css.getPropertyValue("--rule").trim(),
+    accent: css.getPropertyValue("--accent").trim(),
+    paper: css.getPropertyValue("--paper").trim(),
+  };
+
+  const state = {
+    playing: true,
+    speed: 1,
+    ratio: 12,          // omega_E / omega_J — integer for closed geometry (real ≈ 11.86)
+    epiRatio: 0.2,      // fixed: Earth orbit ÷ Jupiter orbit (real ≈ 0.19, rounded for clean 1:5 geometry)
+    epicycleScale: 1.0, // multiplier on geocentric epicycle radii (geocentric panel only)
+    orders: 1,          // number of stacked epicycles (1..20)
+    t: 0,
+    geoTrail: [],
+  };
+
+  // ---- Stacked epicycles (decorative cascade, calibrated to ratio) ----
+  // Order 1 is the physical first epicycle: Earth's orbit projected onto
+  // the geocentric frame, rotating at ω_E with phase π. Higher orders are
+  // decorative refinements in the spirit of medieval Ptolemy — each rides
+  // on the previous and is half its size. Each order's rotation rate is
+  // calibrated to add a chosen number of wobbles per Earth-Jupiter
+  // overlap. The sequence rises along the primes (after a friendly 1, 2
+  // start): the gaps grow roughly logarithmically, so each step is a
+  // perceptibly fresh pattern but the count never explodes the way 2^N
+  // would. Cadence stays tied to the period ratio.
+  const MAX_ORDERS = 10;
+  const ORDER_PHASES = Array.from({ length: MAX_ORDERS }, (_, i) => (i === 0 ? Math.PI : 0));
+  const ORDER_DECAY = 0.5; // each successive epicycle is half the size of its parent
+
+  // Wobbles per Earth-Jupiter overlap for each order (1..MAX_ORDERS).
+  // 1, 2, then primes: 3, 5, 7, 11, 13, 17, 19, 23.
+  const WOBBLES_PER_OVERLAP = [1, 2, 3, 5, 7, 11, 13, 17, 19, 23];
+
+  function orderOmega(idx, ratio) {
+    const w = WOBBLES_PER_OVERLAP[idx];
+    return (w * (ratio - 1) + 1) / ratio;
+  }
+
+  function ordinal(n) {
+    const v = n % 100;
+    if (v >= 11 && v <= 13) return n + "th";
+    switch (n % 10) {
+      case 1: return n + "st";
+      case 2: return n + "nd";
+      case 3: return n + "rd";
+      default: return n + "th";
+    }
+  }
+
+  function resize() {
+    [helio, geo].forEach((c) => {
+      const rect = c.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      c.width = Math.round(rect.width * dpr);
+      c.height = Math.round(rect.height * dpr);
+      const ctx = c.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    });
+    state.geoTrail = [];
+  }
+  resize();
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 120);
+  });
+
+  // --- Drawing primitives ---
+  function ring(ctx, cx, cy, r, color, width, dashes) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    if (dashes) ctx.setLineDash(dashes); else ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function disc(ctx, cx, cy, r, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  function glow(ctx, cx, cy, inner, outer, color1, color2) {
+    const g = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+    g.addColorStop(0, color1);
+    g.addColorStop(1, color2);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, outer, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  function label(ctx, text, x, y, color, size, weight) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = `${weight || 600} ${size}px "Source Sans 3", Helvetica, Arial, sans-serif`;
+    ctx.textBaseline = "middle";
+    // simple drop "halo" so labels stay legible over orbits
+    ctx.strokeStyle = "rgba(10, 11, 13, 0.95)";
+    ctx.lineWidth = 3;
+    ctx.lineJoin = "round";
+    ctx.strokeText(text, x, y);
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+  function gridCross(ctx, cx, cy, reach) {
+    ctx.save();
+    ctx.strokeStyle = C.orbitSoft;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    ctx.moveTo(cx - reach, cy); ctx.lineTo(cx + reach, cy);
+    ctx.moveTo(cx, cy - reach); ctx.lineTo(cx, cy + reach);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // --- Compute scale shared between the two views ---
+  // Geocentric extent is R_J + R_E (the limiting case). We pick the smaller
+  // canvas dimension, subtract margin, and back out R_E so both panels share
+  // the same physical scale: deferent radius equals true Jupiter orbit radius.
+  function physicsFor(canvas) {
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const margin = 36;
+    const halfMin = Math.min(w, h) / 2 - margin;
+    // Geocentric extent = deferent + first epicycle = jupR (1 + epiRatio).
+    // Heliocentric extent = jupR. We size both panels to the larger
+    // constraint so the deferent and Jupiter's true orbit share scale.
+    const jupR = halfMin / (1 + state.epiRatio);
+    const earthR = jupR * state.epiRatio;
+    const moonR = Math.max(8, earthR * 0.16);
+    return { w, h, cx: w / 2, cy: h / 2, earthR, jupR, moonR };
+  }
+
+  // --- Heliocentric panel ---
+  function drawHelio() {
+    const p = physicsFor(helio);
+    const omegaE = 1;
+    const omegaJ = omegaE / state.ratio;
+    const omegaM = omegaE * 13.37; // real moon orbits per Earth year
+
+    ctxH.fillStyle = "#14171C";
+    ctxH.fillRect(0, 0, p.w, p.h);
+
+    gridCross(ctxH, p.cx, p.cy, p.jupR + 16);
+
+    // Orbits
+    ring(ctxH, p.cx, p.cy, p.earthR, C.orbit, 1.2, [4, 4]);
+    ring(ctxH, p.cx, p.cy, p.jupR, C.orbit, 1.2, [4, 4]);
+
+    // Positions
+    const ex = p.cx + p.earthR * Math.cos(state.t * omegaE);
+    const ey = p.cy + p.earthR * Math.sin(state.t * omegaE);
+    const jAng = state.t * omegaJ;
+    const jx = p.cx + p.jupR * Math.cos(jAng);
+    const jy = p.cy + p.jupR * Math.sin(jAng);
+    const mx = ex + p.moonR * Math.cos(state.t * omegaM);
+    const my = ey + p.moonR * Math.sin(state.t * omegaM);
+
+    // Faint Earth-Jupiter sight line — this is the very vector that becomes
+    // the epicycle radius in the geocentric panel.
+    ctxH.save();
+    ctxH.strokeStyle = "rgba(45, 226, 160, 0.35)";
+    ctxH.lineWidth = 1;
+    ctxH.setLineDash([2, 4]);
+    ctxH.beginPath();
+    ctxH.moveTo(ex, ey);
+    ctxH.lineTo(jx, jy);
+    ctxH.stroke();
+    ctxH.restore();
+
+    // Moon orbit moves with Earth
+    ring(ctxH, ex, ey, p.moonR, C.orbitSoft, 0.9, [2, 3]);
+
+    // Sun
+    glow(ctxH, p.cx, p.cy, 8, 28, C.sunGlow, "rgba(244,208,63,0)");
+    disc(ctxH, p.cx, p.cy, 9, C.sun);
+
+    // Earth, Moon, Jupiter
+    disc(ctxH, ex, ey, 5.2, C.earth);
+    disc(ctxH, mx, my, 2.4, C.moon);
+    glow(ctxH, jx, jy, 5, 14, "rgba(236, 72, 153, 0.18)", "rgba(236,72,153,0)");
+    disc(ctxH, jx, jy, 6, C.jupiter);
+
+    // Labels
+    label(ctxH, "SUN", p.cx + 14, p.cy - 14, C.ink, 10);
+    label(ctxH, "EARTH", ex + 9, ey - 11, C.ink, 10);
+    label(ctxH, "JUPITER", jx + 10, jy - 11, C.ink, 10);
+  }
+
+  // --- Geocentric panel ---
+  function drawGeo() {
+    const p = physicsFor(geo);
+    const omegaE = 1;
+    const omegaJ = omegaE / state.ratio;
+    const omegaM = omegaE * 13.37; // real ratio of moon orbits per Earth year
+    const orders = state.orders;
+
+    ctxG.fillStyle = "#14171C";
+    ctxG.fillRect(0, 0, p.w, p.h);
+
+    gridCross(ctxG, p.cx, p.cy, p.jupR + p.earthR + 16);
+
+    // Sun's apparent orbit around Earth (Ptolemy's solar circle)
+    ring(ctxG, p.cx, p.cy, p.earthR, C.orbit, 1.2, [4, 4]);
+    // Moon's orbit
+    ring(ctxG, p.cx, p.cy, p.moonR, C.orbitSoft, 0.9, [2, 3]);
+    // Deferent for Jupiter
+    ring(ctxG, p.cx, p.cy, p.jupR, C.orbit, 1.2, [4, 4]);
+
+    // Build the chain of centers: Earth → deferent point → 1st epi point
+    // → 2nd epi point → ... and Jupiter rides the final one.
+    // points[0] is Earth, points[1] is the moving deferent point,
+    // points[k+1] is the location after applying the k-th epicycle.
+    const dAng = state.t * omegaJ;
+    const points = [{ x: p.cx, y: p.cy }];
+    points.push({
+      x: p.cx + p.jupR * Math.cos(dAng),
+      y: p.cy + p.jupR * Math.sin(dAng),
+    });
+    // Build the chain. Order 1 = the basic geocentric epicycle (Earth's
+    // orbit, radius p.earthR, frequency ω_E, phase π). Higher orders are
+    // decorative: each rotates fast enough to add K wobbles per overlap
+    // (using the period ratio), and shrinks by ORDER_DECAY each step.
+    // The epicycleScale multiplier scales every epicycle in the chain
+    // proportionally — frequencies (and thus wobble counts) are untouched.
+    const radii = [];
+    let r = p.earthR * state.epicycleScale;
+    for (let i = 0; i < orders; i++) {
+      radii.push(r);
+      const ang = state.t * omegaE * orderOmega(i, state.ratio) + ORDER_PHASES[i];
+      const last = points[points.length - 1];
+      points.push({
+        x: last.x + r * Math.cos(ang),
+        y: last.y + r * Math.sin(ang),
+      });
+      r *= ORDER_DECAY;
+    }
+    const jup = points[points.length - 1];
+
+    // Draw each epicycle as a dashed circle around its parent center.
+    // Skip drawing for radii too small to be visible — keeps the canvas
+    // from getting cluttered when scaling to many orders.
+    const VISIBLE_R = 3;
+    for (let i = 0; i < orders; i++) {
+      if (radii[i] < VISIBLE_R) break;
+      const center = points[i + 1];
+      const dashSize = Math.max(2, 3 - i * 0.5);
+      ring(ctxG, center.x, center.y, radii[i], C.orbitSoft, 1.0, [dashSize, dashSize]);
+    }
+
+    // Sun's geocentric position (opposite Earth's heliocentric position).
+    const exh = Math.cos(state.t * omegaE);
+    const eyh = Math.sin(state.t * omegaE);
+    const sgx = p.cx + p.earthR * -exh;
+    const sgy = p.cy + p.earthR * -eyh;
+
+    // Moon
+    const mx = p.cx + p.moonR * Math.cos(state.t * omegaM);
+    const my = p.cy + p.moonR * Math.sin(state.t * omegaM);
+
+    // Trail of Jupiter's apparent path. Cap length so loops stay legible.
+    state.geoTrail.push([jup.x, jup.y]);
+    const maxTrail = 2400;
+    if (state.geoTrail.length > maxTrail) {
+      state.geoTrail.splice(0, state.geoTrail.length - maxTrail);
+    }
+    const trail = state.geoTrail;
+    if (trail.length > 1) {
+      ctxG.save();
+      ctxG.lineWidth = 1.6;
+      ctxG.lineCap = "round";
+      ctxG.lineJoin = "round";
+      const segCount = trail.length - 1;
+      ctxG.strokeStyle = "rgba(236, 72, 153, 0.30)";
+      ctxG.beginPath();
+      ctxG.moveTo(trail[0][0], trail[0][1]);
+      for (let i = 1; i < trail.length; i++) ctxG.lineTo(trail[i][0], trail[i][1]);
+      ctxG.stroke();
+      const headStart = Math.max(0, segCount - 220);
+      ctxG.strokeStyle = "rgba(236, 72, 153, 0.85)";
+      ctxG.beginPath();
+      ctxG.moveTo(trail[headStart][0], trail[headStart][1]);
+      for (let i = headStart + 1; i < trail.length; i++) ctxG.lineTo(trail[i][0], trail[i][1]);
+      ctxG.stroke();
+      ctxG.restore();
+    }
+
+    // Construction lines connecting all centers in the chain. These are
+    // now drawn in subordinate gray — they show the Ptolemaic mechanism
+    // while the red sight line below carries the conceptual punchline.
+    // We stop drawing radius vectors once the segments shrink to pixels.
+    ctxG.save();
+    ctxG.lineWidth = 1;
+    ctxG.setLineDash([3, 4]);
+    ctxG.strokeStyle = "rgba(213, 217, 225, 0.22)";
+    ctxG.beginPath();
+    ctxG.moveTo(points[0].x, points[0].y);
+    ctxG.lineTo(points[1].x, points[1].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      if (radii[i - 1] < VISIBLE_R) break;
+      ctxG.moveTo(points[i].x, points[i].y);
+      ctxG.lineTo(points[i + 1].x, points[i + 1].y);
+    }
+    ctxG.stroke();
+
+    // Earth → Jupiter sight line, the same red dashed vector shown in the
+    // heliocentric panel. This line and the chain above always end at the
+    // same point — the construction proves the result.
+    ctxG.strokeStyle = "rgba(45, 226, 160, 0.55)";
+    ctxG.lineWidth = 1.2;
+    ctxG.setLineDash([2, 4]);
+    ctxG.beginPath();
+    ctxG.moveTo(p.cx, p.cy);
+    ctxG.lineTo(jup.x, jup.y);
+    ctxG.stroke();
+    ctxG.restore();
+
+    // Sun
+    glow(ctxG, sgx, sgy, 6, 22, C.sunGlow, "rgba(244,208,63,0)");
+    disc(ctxG, sgx, sgy, 7, C.sun);
+
+    // Epicycle center markers — only while the parent epicycle is visible.
+    for (let i = 1; i < points.length - 1; i++) {
+      if (radii[i - 1] < VISIBLE_R) break;
+      disc(ctxG, points[i].x, points[i].y, 2.4, "#6B7280");
+    }
+
+    // Earth at the very center
+    glow(ctxG, p.cx, p.cy, 4, 14, "rgba(77, 208, 225, 0.18)", "rgba(77,208,225,0)");
+    disc(ctxG, p.cx, p.cy, 5.2, C.earth);
+
+    // Moon
+    disc(ctxG, mx, my, 2.4, C.moon);
+
+    // Jupiter
+    glow(ctxG, jup.x, jup.y, 5, 14, "rgba(236, 72, 153, 0.22)", "rgba(236,72,153,0)");
+    disc(ctxG, jup.x, jup.y, 6, C.jupiter);
+
+    // Labels
+    label(ctxG, "EARTH", p.cx + 9, p.cy - 11, C.ink, 10);
+    label(ctxG, "SUN", sgx + 10, sgy - 11, C.ink, 10);
+    label(ctxG, "JUPITER", jup.x + 10, jup.y - 11, C.ink, 10);
+    label(ctxG, "deferent", p.cx + p.jupR * 0.71 + 4, p.cy - p.jupR * 0.71 - 2, C.muted, 9, 400);
+    // Only label the first three orders — beyond that the labels overlap.
+    const labelLimit = Math.min(orders, 3);
+    for (let i = 0; i < labelLimit; i++) {
+      if (radii[i] < VISIBLE_R + 4) break;
+      const center = points[i + 1];
+      const text = orders === 1 ? "epicycle" : ordinal(i + 1) + " epicycle";
+      label(ctxG, text, center.x + 8, center.y + 12, C.muted, 9, 400);
+    }
+  }
+
+  // --- Animation loop ---
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); // clamp huge gaps
+    last = now;
+    // Time scaling: at 5× speed, Earth completes one orbit per real second.
+    // So 1× = 5 seconds per Earth year, and 10× = 2 Earth years per second.
+    if (state.playing) state.t += dt * state.speed * (2 * Math.PI / 5);
+    drawHelio();
+    drawGeo();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // --- Controls ---
+  const playBtn = document.getElementById("playBtn");
+  playBtn.addEventListener("click", () => {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? "Pause" : "Play";
+  });
+  // Default raw slider values. The reset button writes these back to the
+  // DOM and dispatches input events so the bindRange handlers re-sync state
+  // and the on-screen labels.
+  const DEFAULTS = {
+    speed: 2,            // index into SPEED_STOPS (= 1×)
+    ratio: 12,           // integer ≈ Jupiter's sidereal year (11.86)
+    orders: 1,
+    epicycleScale: 1,    // 1× width
+  };
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    Object.entries(DEFAULTS).forEach(([id, value]) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input"));
+    });
+    state.t = 0;
+    state.geoTrail = [];
+    state.playing = true;
+    playBtn.textContent = "Pause";
+  });
+
+  function bindRange(id, valId, transform, format, onChange) {
+    const el = document.getElementById(id);
+    const out = document.getElementById(valId);
+    const apply = () => {
+      const raw = parseFloat(el.value);
+      const v = transform(raw);
+      onChange(v);
+      out.textContent = format(v);
+    };
+    el.addEventListener("input", apply);
+    apply();
+  }
+
+  // Speed slider uses index-based mapping: 0.5, 0.75, then integers 1..10.
+  const SPEED_STOPS = [0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  bindRange("speed", "speedVal",
+    (v) => SPEED_STOPS[Math.round(v)],
+    (v) => v + "×",
+    (v) => { state.speed = v; });
+
+  bindRange("ratio", "ratioVal",
+    (v) => Math.round(v),
+    (v) => v + " : 1",
+    (v) => { state.ratio = v; state.geoTrail = []; });
+
+  bindRange("orders", "ordersVal",
+    (v) => Math.round(v),
+    (v) => ordinal(v) + " order",
+    (v) => { state.orders = v; state.geoTrail = []; });
+
+  bindRange("epicycleScale", "epicycleScaleVal",
+    (v) => v,
+    (v) => v.toFixed(2) + "×",
+    (v) => { state.epicycleScale = v; state.geoTrail = []; });
+})();
+</script>
+</body>
+</html>

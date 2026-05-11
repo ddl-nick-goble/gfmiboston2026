@@ -1,0 +1,1384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Is Not Special — N. Goble · GFMI Boston</title>
+<meta name="description" content="On model governance for the next decade. Nicholas J. Goble, Domino Data Lab. GFMI Boston, May 2026." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ---------- Palette: Domino dark ---------- */
+  :root {
+    --bg:         #0A0B0D;
+    --bg-card:    #14171C;
+    --bg-card-hi: #1C2027;
+    --bg-sunken:  #08090B;
+    --border:     #242932;
+    --border-dim: #1A1E25;
+
+    --text:       #FFFFFF;
+    --text-body:  #D5D9E1;
+    --text-muted: #8A93A0;
+    --text-faint: #404754;
+
+    --mint:       #2DE2A0;
+    --mint-dim:   #1A8E64;
+    --cyan:       #4DD0E1;
+    --pink:       #F87171;
+    --yellow:     #F4D03F;
+    --purple:     #A855F7;
+    --pink-grad:  #EC4899;
+    --orange:     #F97316;
+
+    --sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", "Menlo", "Consolas", monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection { background: var(--mint); color: var(--bg); }
+
+  /* ---------- Stage: 1920×1080 design canvas, scaled to viewport ----------
+     Uses absolute positioning + negative margins to center the unscaled
+     1920×1080 box at viewport center. Then `transform: scale()` shrinks it
+     around its own center, so the visual result is always centered and
+     fits the viewport on any screen size. */
+  .stage {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .deck {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1920px;
+    height: 1080px;
+    margin-top: -540px;   /* half of 1080 */
+    margin-left: -960px;  /* half of 1920 */
+    transform-origin: 50% 50%;
+  }
+
+  /* ---------- Slides ----------
+     Use visibility / opacity rather than display:none so iframe-bound
+     canvases always have layout dimensions and can render correctly when
+     their slide becomes active. overflow:hidden so content can never spill
+     past slide bounds onto adjacent slides or the HUD. */
+  .slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px;
+    height: 1080px;
+    background: var(--bg);
+    color: var(--text);
+    padding: 80px 90px 130px;  /* bottom 130px reserves room for the HUD */
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .slide.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 1;
+  }
+
+  /* ---------- Iframe-heavy slides ----------
+     Slides whose primary content is an embedded HTML visualization need
+     every pixel of vertical room they can get for the iframe. We drop the
+     kicker, pull the title to the top edge, shrink the title ~20% versus
+     the deck-wide h2, and collapse the top + bottom padding so the iframe
+     can swallow ~200px more height than the default slide layout. */
+  .slide.slide-viz {
+    padding: 24px 90px 70px;
+  }
+  .slide.slide-viz h2.title {
+    margin-top: 0;
+    font-size: 60px;
+    line-height: 1.05;
+  }
+  .slide.slide-viz h3.title { margin-top: 0; }
+  .slide.slide-viz p.body { margin-top: 12px; }
+
+  /* ---------- Common parts ---------- */
+  .kicker {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.32em;
+    color: var(--mint);
+    margin-bottom: 0;
+  }
+  .kicker.pink   { color: var(--pink); }
+  .kicker.cyan   { color: var(--cyan); }
+  .kicker.yellow { color: var(--yellow); }
+  .kicker.purple { color: var(--purple); }
+  .kicker.gradient { color: var(--pink-grad); }
+
+  h1.title {
+    font-size: 152px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin: 80px 0 0 0;
+  }
+  h2.title {
+    font-size: 76px;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    margin: 60px 0 0 0;
+  }
+  h3.title {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 40px 0 0 0;
+  }
+  p.lede {
+    font-size: 28px;
+    color: var(--text-body);
+    line-height: 1.45;
+    max-width: 1500px;
+    margin: 22px 0 0 0;
+  }
+  p.body {
+    font-size: 22px;
+    color: var(--text-body);
+    line-height: 1.55;
+    margin: 16px 0 0 0;
+  }
+  p.body.muted { color: var(--text-muted); }
+  p.body.italic { font-style: italic; }
+  .text-mint { color: var(--mint); }
+  .text-pink { color: var(--pink); }
+  .text-yellow { color: var(--yellow); }
+  .text-cyan  { color: var(--cyan); }
+  .text-pink-grad { color: var(--pink-grad); }
+
+  /* Gradient signature bar */
+  .gradient-bar {
+    height: 10px;
+    border-radius: 0;
+    background: linear-gradient(90deg, var(--orange) 0%, var(--pink-grad) 50%, var(--purple) 100%);
+  }
+
+  /* Card */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    position: relative;
+  }
+  .card.accent-mint   { border-top: 4px solid var(--mint); }
+  .card.accent-cyan   { border-top: 4px solid var(--cyan); }
+  .card.accent-pink   { border-top: 4px solid var(--pink); }
+  .card.accent-yellow { border-top: 4px solid var(--yellow); }
+  .card.accent-purple { border-top: 4px solid var(--purple); }
+  .card.accent-grad   { border-top: 4px solid var(--pink-grad); }
+
+  /* Chip */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    padding: 8px 14px;
+    border: 1.5px solid var(--border);
+    color: var(--text-body);
+    background: var(--bg-card);
+  }
+  .chip.mint   { border-color: var(--mint);   color: var(--mint); }
+  .chip.cyan   { border-color: var(--cyan);   color: var(--cyan); }
+  .chip.pink   { border-color: var(--pink);   color: var(--pink); }
+  .chip.yellow { border-color: var(--yellow); color: var(--yellow); }
+  .chip.grad   { border-color: var(--pink-grad); color: var(--pink-grad); }
+
+  /* Footer brand strip — lives INSIDE the .deck so it scales with the slides
+     and stays anchored to the slide bottom on any viewport. */
+  .hud {
+    position: absolute;
+    left: 90px;
+    right: 90px;
+    bottom: 36px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    border-top: 1px solid var(--border-dim);
+    padding-top: 18px;
+    z-index: 10;
+  }
+  .hud .brand,
+  .hud .pageno {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.24em;
+  }
+  .hud .pageno { letter-spacing: 0.16em; }
+
+  /* ---------- Slide 1: TITLE ---------- */
+  .slide-title .stage-mark {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.32em;
+    color: var(--text-muted);
+  }
+  .slide-title .byline {
+    position: absolute;
+    bottom: 110px;
+    left: 90px;
+  }
+  .slide-title .byline .name {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.24em;
+  }
+  .slide-title .byline .org {
+    font-family: var(--mono);
+    font-weight: 400;
+    font-size: 15px;
+    letter-spacing: 0.24em;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+  .slide-title .gradient-bar { width: 1080px; margin-top: 60px; }
+  .slide-title h1.title { margin-top: 100px; }
+  .slide-title .sub-1 {
+    font-size: 32px;
+    color: var(--text);
+    margin: 30px 0 0 0;
+    max-width: 1640px;
+    font-weight: 500;
+  }
+  .slide-title .sub-2 {
+    font-size: 32px;
+    color: var(--mint);
+    margin: 12px 0 0 0;
+    font-weight: 700;
+  }
+
+  /* ---------- Slide 2: 50 PEOPLE ---------- */
+  .qrows {
+    margin-top: 50px;
+    display: grid;
+    gap: 14px;
+  }
+  .qrow {
+    display: grid;
+    grid-template-columns: 90px 1fr 360px 130px;
+    align-items: center;
+    gap: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 18px 24px;
+  }
+  .qrow .qtag {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.24em;
+  }
+  .qrow .qtxt {
+    font-size: 26px;
+    color: var(--text);
+  }
+  .qrow .qbar { display: grid; gap: 6px; }
+  .qrow .qbar-labels {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 13px;
+    letter-spacing: 0.22em;
+    font-weight: 700;
+  }
+  .qbar-track {
+    height: 16px;
+    display: grid;
+    grid-template-columns: var(--yes-w) 1fr;
+  }
+  .qbar-track .yes { background: var(--mint); }
+  .qbar-track .no  { background: var(--pink); }
+  .qrow .chip { justify-self: end; }
+  .qprompt {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.28em;
+    color: var(--mint);
+    margin-top: 38px;
+  }
+  .qcoda {
+    font-style: italic;
+    font-size: 22px;
+    color: var(--text-body);
+    margin-top: 28px;
+  }
+
+  /* ---------- Slide 3: FRICTION ---------- */
+  .quote-card {
+    margin-top: 40px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-left: 6px solid var(--mint);
+    padding: 32px 40px;
+  }
+  .quote-card .l1 { font-size: 44px; color: var(--text-body); font-weight: 500; }
+  .quote-card .l2 { font-size: 44px; color: var(--mint); font-weight: 700; margin-top: 6px; }
+  .friction-row {
+    margin-top: 38px;
+    display: grid;
+    grid-template-columns: 8px 1fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+  .friction-row .rule { background: var(--mint); }
+  .friction-row p { font-size: 26px; color: var(--text-body); margin: 0; line-height: 1.45; }
+
+  /* ---------- Slide 4 / 10: IFRAME ---------- */
+  .viz-frame-wrap {
+    margin-top: 18px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    padding: 10px;
+    width: 100%;
+    height: 900px;     /* with slide-viz tighter chrome the iframe fills nearly the whole slide below the title */
+    position: relative;
+  }
+  .viz-frame-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: var(--bg);
+  }
+  .viz-caption {
+    margin-top: 18px;
+    text-align: center;
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 22px;
+  }
+
+  /* ---------- Slide 5: 4-COLUMN CARDS ---------- */
+  .epi-grid {
+    margin-top: 60px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 22px;
+  }
+  .epi-col {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 28px 26px;
+  }
+  .epi-col .col-label {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.28em;
+    margin-bottom: 22px;
+  }
+  .epi-col.mint   .col-label { color: var(--mint); }
+  .epi-col.cyan   .col-label { color: var(--cyan); }
+  .epi-col.yellow .col-label { color: var(--yellow); }
+  .epi-col.grad   .col-label { color: var(--pink-grad); }
+  .epi-col ul { list-style: none; padding: 0; margin: 0; }
+  .epi-col li {
+    padding: 14px 0 14px 22px;
+    position: relative;
+    font-size: 19px;
+    color: var(--text-body);
+    line-height: 1.35;
+  }
+  .epi-col li::before {
+    content: "·";
+    position: absolute;
+    left: 0;
+    font-weight: 900;
+    font-size: 28px;
+    line-height: 0.6;
+  }
+  .epi-col.mint   li::before { color: var(--mint); }
+  .epi-col.cyan   li::before { color: var(--cyan); }
+  .epi-col.yellow li::before { color: var(--yellow); }
+  .epi-col.grad   li::before { color: var(--pink-grad); }
+
+  /* ---------- Slide 4: EPICYCLES iframe ----------
+     The slide-asset version of the epicycles viz is a richer 2-panel layout
+     with controls. With the 60px title fitting on a single line, the iframe
+     can stretch right up to the HUD separator (~y=1008 in slide coords). */
+  .epicycles-frame-wrap {
+    margin-top: 18px;
+    width: 100%;
+    height: 895px;
+    background: var(--bg);
+    position: relative;
+  }
+  .epicycles-frame-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: var(--bg);
+  }
+
+  /* ---------- Slide 6: GOVERNANCE DIP iframe ----------
+     Sized to match the asset's design canvas (1740×900). With slide-viz
+     trimming title+padding, the iframe takes nearly the full slide below
+     the title — chart spreads horizontally, sidebar stops fighting for
+     vertical room. */
+  .dip-frame-wrap {
+    margin-top: 14px;
+    width: 100%;
+    height: 920px;
+    background: var(--bg);
+    position: relative;
+  }
+  .dip-frame-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: var(--bg);
+  }
+
+  /* ---------- Slides 10 / 11: MODEL DEFINITION iframe ----------
+     Two slides whose iframes share an identical 1920×1080 canvas and
+     identical SVG viewBox (0 30 760 320). Sizing the wrapper the same on
+     both slides ensures every shape stays put pixel-for-pixel between the
+     intro and the detailed version — only the contents of those shapes
+     change as you advance. */
+  .modeldef-frame-wrap {
+    margin-top: 14px;
+    width: 100%;
+    height: 920px;
+    background: var(--bg);
+    position: relative;
+  }
+  .modeldef-frame-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: var(--bg);
+  }
+
+  /* ---------- Slide 8: TIMELINE TABLE ---------- */
+  .timeline {
+    margin-top: 50px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 19px;
+  }
+  .timeline th, .timeline td {
+    text-align: left;
+    padding: 18px 20px;
+    vertical-align: middle;
+  }
+  .timeline th {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    color: var(--text-muted);
+    background: var(--bg-card-hi);
+    border-bottom: 1px solid var(--border);
+  }
+  .timeline th.gap { color: var(--pink); }
+  .timeline tr:nth-child(even) td { background: var(--bg-card); }
+  .timeline tr:nth-child(odd)  td { background: var(--bg); }
+  .timeline td.year {
+    font-family: var(--mono); font-weight: 700; color: var(--text);
+    width: 100px;
+  }
+  .timeline td.trigger { color: var(--text-body); }
+  .timeline td.lag {
+    width: 180px;
+    font-family: var(--mono); color: var(--text-muted); font-size: 14px;
+  }
+  .timeline td.lag .lagbar {
+    background: var(--pink);
+    height: 10px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  .timeline td.response { font-weight: 700; color: var(--text); }
+  .timeline td.gap { font-style: italic; color: var(--pink); }
+
+  /* ---------- Slide 9: MODEL DIAGRAM ---------- */
+  .diagram-wrap {
+    margin-top: 50px;
+    border: 1px solid var(--border);
+    background: var(--bg-sunken);
+    padding: 56px 70px 60px;
+    position: relative;
+  }
+  .env-box {
+    border: 1.5px dashed var(--text-faint);
+    background: var(--bg-card);
+    padding: 28px 30px 50px;
+    position: relative;
+    margin: 0 70px;
+  }
+  .env-label {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 14px; letter-spacing: 0.28em;
+    color: var(--text-muted);
+  }
+  .env-pieces {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 14px;
+    text-align: center;
+    font-family: var(--mono); font-weight: 500;
+    font-size: 14px; letter-spacing: 0.22em;
+    color: var(--text-muted);
+  }
+  .env-inner-row {
+    margin-top: 32px;
+    position: relative;
+    height: 200px;
+  }
+  .arrow-label {
+    position: absolute;
+    font-family: var(--mono); font-weight: 700;
+    font-size: 16px; letter-spacing: 0.28em;
+  }
+  .arrow-label.in  { top: 20px; left: -52px;  color: var(--text); }
+  .arrow-label.out { top: 20px; right: -68px; color: var(--text); }
+  .arrow-line {
+    position: absolute;
+    top: 100px;
+    height: 4px;
+    background: var(--mint);
+  }
+  .arrow-line.in  { left: -52px; right: calc(50% + 240px); }
+  .arrow-line.out { left: calc(50% + 240px); right: -52px; }
+  .arrow-head {
+    position: absolute;
+    top: 88px;
+    width: 0; height: 0;
+    border-top: 14px solid transparent;
+    border-bottom: 14px solid transparent;
+    border-left: 18px solid var(--mint);
+  }
+  .arrow-head.in  { right: calc(50% + 222px); }
+  .arrow-head.out { right: -52px; }
+  .model-box {
+    position: absolute;
+    top: 30px;
+    left: calc(50% - 220px);
+    width: 440px;
+    height: 140px;
+    background: var(--bg-card-hi);
+    border: 3px solid var(--mint);
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+  .model-box .lbl {
+    font-size: 44px; font-weight: 800; color: var(--text);
+    line-height: 1;
+  }
+  .model-box .ver {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 16px; letter-spacing: 0.32em;
+    color: var(--mint);
+    margin-top: 12px;
+  }
+  .definition-line {
+    text-align: center;
+    font-size: 24px;
+    color: var(--text-body);
+    margin-top: 36px;
+  }
+  .definition-line .has-version { color: var(--mint); font-weight: 700; }
+
+  /* ---------- Slide 10: RISK SURFACE iframe ---------- */
+  .risk-frame-wrap {
+    margin: 18px auto 0;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    padding: 8px;
+    width: 100%;
+    height: 895px;
+    position: relative;
+  }
+  .risk-frame-wrap iframe {
+    width: 100%; height: 100%;
+    border: 0; background: #FAF7F0;
+  }
+  .risk-frame-wrap .source-tag {
+    position: absolute;
+    top: -16px; left: 16px;
+    background: var(--bg);
+    padding: 4px 12px;
+    font-family: var(--mono); font-weight: 700;
+    font-size: 12px; letter-spacing: 0.28em;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  /* ---------- Slide 11: COLLAPSE TABLE ---------- */
+  .collapse-table {
+    margin-top: 50px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 22px;
+  }
+  .collapse-table th, .collapse-table td {
+    padding: 22px 24px; text-align: left; vertical-align: middle;
+  }
+  .collapse-table th {
+    font-family: var(--mono); font-size: 14px; font-weight: 700;
+    letter-spacing: 0.28em; color: var(--text-muted);
+    background: var(--bg-card-hi); border-bottom: 1px solid var(--border);
+  }
+  .collapse-table tr:nth-child(even) td { background: var(--bg-card); }
+  .collapse-table tr:nth-child(odd)  td { background: var(--bg); }
+  .collapse-table td.thing { font-weight: 700; color: var(--text); width: 28%; }
+  .collapse-table td.what  { color: var(--text-body); }
+  .collapse-table td.verdict { width: 280px; text-align: right; }
+
+  /* ---------- Slide 12: BIG STACKED HEADLINES ---------- */
+  .stacked-three h2 {
+    font-size: 104px; font-weight: 800; letter-spacing: -0.015em;
+    line-height: 1.05; margin: 0;
+  }
+  .stacked-three h2.line-1 { color: var(--text); margin-top: 80px; }
+  .stacked-three h2.line-2 { color: var(--text); margin-top: 12px; }
+  .stacked-three h2.line-3 { color: var(--mint); margin-top: 12px; }
+  .stacked-three .gradient-bar { width: 800px; margin-top: 40px; }
+  .stacked-three .coda {
+    font-style: italic; font-size: 26px;
+    color: var(--text-body); margin-top: 28px;
+  }
+
+  /* ---------- Slide 13: THREE MODEL CARDS ---------- */
+  .model-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    margin-top: 50px;
+  }
+  .mcard {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 30px 32px;
+  }
+  .mcard.mint { border-top: 4px solid var(--mint); }
+  .mcard.cyan { border-top: 4px solid var(--cyan); }
+  .mcard.grad { border-top: 4px solid var(--pink-grad); }
+  .mcard .tag {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.28em;
+    margin-bottom: 14px;
+  }
+  .mcard.mint .tag { color: var(--mint); }
+  .mcard.cyan .tag { color: var(--cyan); }
+  .mcard.grad .tag { color: var(--pink-grad); }
+  .mcard .name { font-size: 38px; font-weight: 800; line-height: 1.05; }
+  .mcard .sub  { font-size: 18px; color: var(--text-muted); margin-top: 8px; }
+  .mcard .sep { height: 1px; background: var(--border); margin: 22px 0 18px; }
+  .mcard dl { margin: 0; display: grid; grid-template-columns: 130px 1fr; gap: 12px 18px; }
+  .mcard dt {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.24em;
+    color: var(--text-muted);
+  }
+  .mcard dd { margin: 0; font-size: 18px; color: var(--text); }
+  .mcards-coda {
+    margin-top: 36px;
+    font-style: italic; font-size: 22px;
+    color: var(--mint);
+  }
+
+  /* ---------- Slide 14: YAML + CARDS ---------- */
+  .yaml-row {
+    display: grid; grid-template-columns: 1fr 580px;
+    gap: 36px; margin-top: 40px;
+  }
+  .yaml-pane {
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+  }
+  .yaml-pane .titlebar {
+    background: var(--bg-card-hi);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .yaml-pane .dots { display: flex; gap: 6px; }
+  .yaml-pane .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .yaml-pane .dot.r { background: #FF6058; }
+  .yaml-pane .dot.y { background: #FFBD2D; }
+  .yaml-pane .dot.g { background: #27C93F; }
+  .yaml-pane .filename {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-left: 8px;
+  }
+  .yaml-pane pre {
+    margin: 0;
+    padding: 22px 28px;
+    font-family: var(--mono);
+    font-size: 18px;
+    line-height: 1.55;
+    color: var(--text-body);
+  }
+  .yaml-pane .key   { color: var(--cyan); }
+  .yaml-pane .true  { color: var(--mint); }
+  .yaml-pane .false { color: var(--pink); }
+  .yaml-pane .num   { color: var(--yellow); }
+  .yaml-pane .str   { color: var(--mint); }
+  .applies-to .applies-label {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 14px; letter-spacing: 0.28em;
+    color: var(--cyan); margin-bottom: 14px;
+  }
+  .applies-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 22px 26px;
+    margin-bottom: 16px;
+  }
+  .applies-card.mint   { border-top: 4px solid var(--mint); }
+  .applies-card.yellow { border-top: 4px solid var(--yellow); }
+  .applies-card .name { font-size: 30px; font-weight: 700; }
+  .applies-card .tier {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 14px; letter-spacing: 0.28em;
+    margin-top: 8px;
+  }
+  .applies-card.mint   .tier { color: var(--mint); }
+  .applies-card.yellow .tier { color: var(--yellow); }
+
+  /* ---------- Slide 15: SAME MACHINERY ---------- */
+  .definition-strip {
+    margin-top: 28px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-left: 6px solid var(--mint);
+    padding: 22px 28px;
+  }
+  .definition-strip .label {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 14px; letter-spacing: 0.28em;
+    color: var(--mint);
+    margin-right: 16px;
+  }
+  .definition-strip .text {
+    font-size: 22px; color: var(--text-body);
+  }
+  .events { margin-top: 24px; display: grid; gap: 24px; }
+  .event-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 26px 30px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 320px;
+    gap: 24px;
+    align-items: center;
+  }
+  .event-card.grad { border-top: 4px solid var(--pink-grad); }
+  .event-card.cyan { border-top: 4px solid var(--cyan); }
+  .event-card .head { font-size: 38px; font-weight: 800; line-height: 1.05; }
+  .event-card .ver  { font-family: var(--mono); font-size: 16px; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.16em; }
+  .event-card .sub  { font-size: 18px; color: var(--text-body); margin-top: 8px; }
+  .event-card .metric .lbl {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 14px; letter-spacing: 0.28em;
+    color: var(--text-muted);
+  }
+  .event-card .metric .val {
+    font-size: 64px; font-weight: 800; line-height: 1; margin-top: 4px;
+  }
+  .event-card .metric .eps {
+    font-family: var(--mono); font-size: 16px; color: var(--text-muted); margin-top: 6px;
+  }
+  .event-card .verdict { display: grid; gap: 10px; justify-items: end; }
+  .event-card .verdict .chip { padding: 12px 18px; font-size: 14px; }
+  .event-card .verdict .desc { font-style: italic; font-size: 16px; color: var(--text-body); text-align: right; }
+  .machinery-coda {
+    margin-top: 30px;
+    font-style: italic; font-size: 22px;
+    color: var(--text-muted);
+  }
+
+  /* ---------- Slide 16: CLOSING ---------- */
+  .slide-close { padding-top: 0; }
+  .slide-close .gradient-top {
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 18px;
+    background: linear-gradient(90deg, var(--orange) 0%, var(--pink-grad) 50%, var(--purple) 100%);
+  }
+  .slide-close .l1 {
+    margin-top: 220px; font-size: 64px; font-weight: 700;
+    color: var(--text-muted); letter-spacing: -0.01em;
+  }
+  .slide-close .l2 {
+    margin-top: 30px; font-size: 128px; font-weight: 800;
+    color: var(--mint); letter-spacing: -0.02em; line-height: 1.0;
+  }
+  .slide-close .coda {
+    margin-top: 80px; font-size: 28px; color: var(--text-body); max-width: 1500px;
+    line-height: 1.45;
+  }
+
+  /* ---------- Slide 17: Q&A ---------- */
+  .qa-row {
+    display: grid;
+    grid-template-columns: 1fr 720px;
+    gap: 60px;
+    margin-top: 40px;
+  }
+  .qa-row .left h2 {
+    font-size: 152px; font-weight: 800; letter-spacing: -0.02em;
+    margin: 60px 0 0 0; line-height: 1;
+  }
+  .qa-row .left .gradient-bar { width: 600px; margin-top: 50px; }
+  .qa-row .left .name {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 17px; letter-spacing: 0.24em;
+    margin-top: 38px;
+  }
+  .qa-row .left .org {
+    font-size: 22px; color: var(--text-body); margin-top: 8px;
+  }
+  .reading-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--mint);
+    padding: 32px 36px;
+  }
+  .reading-card .heading {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 14px; letter-spacing: 0.28em;
+    color: var(--mint); margin-bottom: 24px;
+  }
+  .reading-card .item { margin-bottom: 22px; }
+  .reading-card .item .t { font-size: 19px; font-weight: 700; line-height: 1.3; }
+  .reading-card .item .a {
+    font-family: var(--mono); font-size: 13px; color: var(--text-muted);
+    margin-top: 5px; letter-spacing: 0.18em;
+  }
+
+  /* ---------- Help overlay ---------- */
+  .help-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10, 11, 13, 0.92);
+    display: none;
+    place-items: center;
+    z-index: 100;
+  }
+  .help-overlay.show { display: grid; }
+  .help-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--mint);
+    padding: 36px 44px;
+    color: var(--text);
+    max-width: 520px;
+    font-family: var(--sans);
+  }
+  .help-card h3 {
+    margin: 0 0 18px 0;
+    font-family: var(--mono);
+    font-size: 14px; letter-spacing: 0.28em;
+    color: var(--mint);
+    font-weight: 700;
+  }
+  .help-card kbd {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 4px 10px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    margin-right: 8px;
+    color: var(--mint);
+    letter-spacing: 0.05em;
+  }
+  .help-card .row { padding: 8px 0; font-size: 16px; color: var(--text-body); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="deck" id="deck">
+
+    <!-- ============================================================ -->
+    <!-- 1 — TITLE                                                     -->
+    <!-- ============================================================ -->
+    <section class="slide slide-title" data-num="1">
+      <div class="stage-mark">GFMI BOSTON  ·  MAY 2026</div>
+      <h1 class="title">AI is not special.<sup style="font-size: 0.4em; color: var(--pink); vertical-align: super; font-weight: 700; margin-left: 6px;">*</sup></h1>
+      <div class="gradient-bar"></div>
+      <p class="sub-1">It&rsquo;s the same governance problem we&rsquo;ve had for thirty years. We just keep repainting it.</p>
+      <p class="sub-2">On model governance for the next decade.</p>
+
+      <div class="byline">
+        <div class="name">NICHOLAS J. GOBLE, PhD</div>
+        <div class="org">DOMINO DATA LAB</div>
+      </div>
+
+      <p style="position: absolute; bottom: 110px; right: 90px; font-family: var(--mono); font-size: 19px; color: var(--text-muted); font-style: italic; letter-spacing: 0.06em; margin: 0;">
+        <span style="color: var(--pink); font-style: normal; font-weight: 700;">*</span>&nbsp;when it comes to governance.
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 2 — 50 PEOPLE                                                 -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="2">
+      <div class="kicker">DISAGREEMENT</div>
+      <h2 class="title">Fifty people in this room, fifty different definitions.</h2>
+      <p class="lede">If I asked everyone in this room to write down what &ldquo;AI governance&rdquo; means in one sentence, we&rsquo;d have 50 different answers.</p>
+
+      <div class="qprompt">Questions that casually come up over MRM dinner conversations:</div>
+
+      <div class="qrows">
+        <div class="qrow">
+          <div class="qtag" style="color: var(--mint);">Q.01</div>
+          <div class="qtxt">Is a Black-Scholes spreadsheet a model?</div>
+          <div class="qbar" style="--yes-w: 62%;">
+            <div class="qbar-labels"><span class="text-mint">62% YES</span><span class="text-pink">38% NO</span></div>
+            <div class="qbar-track"><div class="yes"></div><div class="no"></div></div>
+          </div>
+          <div class="chip mint">SPLIT</div>
+        </div>
+        <div class="qrow">
+          <div class="qtag" style="color: var(--cyan);">Q.02</div>
+          <div class="qtxt">Is the prompt feeding your customer-service LLM a model?</div>
+          <div class="qbar" style="--yes-w: 38%;">
+            <div class="qbar-labels"><span class="text-mint">38% YES</span><span class="text-pink">62% NO</span></div>
+            <div class="qbar-track"><div class="yes"></div><div class="no"></div></div>
+          </div>
+          <div class="chip cyan">SPLIT</div>
+        </div>
+        <div class="qrow">
+          <div class="qtag" style="color: var(--pink-grad);">Q.03</div>
+          <div class="qtxt">Is the router that decides which sub-agent runs a model?</div>
+          <div class="qbar" style="--yes-w: 71%;">
+            <div class="qbar-labels"><span class="text-mint">71% YES</span><span class="text-pink">29% NO</span></div>
+            <div class="qbar-track"><div class="yes"></div><div class="no"></div></div>
+          </div>
+          <div class="chip grad">SPLIT</div>
+        </div>
+        <div class="qrow">
+          <div class="qtag" style="color: var(--yellow);">Q.04</div>
+          <div class="qtxt">Is the threshold on a credit decision a model?</div>
+          <div class="qbar" style="--yes-w: 48%;">
+            <div class="qbar-labels"><span class="text-mint">48% YES</span><span class="text-pink">52% NO</span></div>
+            <div class="qbar-track"><div class="yes"></div><div class="no"></div></div>
+          </div>
+          <div class="chip yellow">SPLIT</div>
+        </div>
+      </div>
+
+      <div class="qcoda">Four questions. No agreement. And we&rsquo;re the people writing the policy.</div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 3 — FRICTION                                                  -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="3">
+      <div class="kicker">FRICTION</div>
+      <h2 class="title">If more models leads to more pain, your governance isn&rsquo;t working.</h2>
+
+      <div class="quote-card">
+        <div class="l1">When governance works, you don&rsquo;t notice it.</div>
+        <div class="l2">When you&rsquo;re feeling friction, that&rsquo;s the governance failing.</div>
+      </div>
+
+      <div class="friction-row">
+        <div class="rule"></div>
+        <p>Six months to put a model into production is death by a thousand paper cuts.</p>
+      </div>
+      <div class="friction-row">
+        <div class="rule"></div>
+        <p>Hand-typing test evidence and model documentation isn&rsquo;t the cost of governance. It means our tools haven&rsquo;t caught up to what a model actually is yet.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 4 — WHAT'S AN EPICYCLE? (concept, plain language)             -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="4">
+      <div class="kicker">WHAT&rsquo;S AN EPICYCLE?</div>
+      <h2 class="title">Roadblocks come <span class="text-pink">stair-stepped.</span></h2>
+
+      <div class="friction-row">
+        <div class="rule"></div>
+        <p>You add a committee.</p>
+      </div>
+      <div class="friction-row">
+        <div class="rule"></div>
+        <p>Then a validation exercise on top.</p>
+      </div>
+      <div class="friction-row">
+        <div class="rule"></div>
+        <p>Then a sub-policy bolted onto that.</p>
+      </div>
+
+      <div class="quote-card" style="margin-top: 32px;">
+        <div class="l1">There&rsquo;s a word for this.</div>
+        <div class="l2" style="color: var(--pink);">Epicycles.</div>
+      </div>
+
+      <p class="body italic" style="margin-top: 38px; color: var(--text-muted);">
+        You don&rsquo;t fix an epicycle by adding another epicycle. You throw the diagram out and start over.
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 5 — PTOLEMY (interactive iframe)                              -->
+    <!-- ============================================================ -->
+    <section class="slide slide-viz" data-num="5">
+      <h2 class="title"><span class="text-yellow">Find the ground truth.</span></h2>
+      <div class="epicycles-frame-wrap">
+        <iframe src="viz/epicycles-slide.html" title="Geocentric vs Heliocentric"></iframe>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 6 — 80 EPICYCLES IN MRM                                       -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="6">
+      <div class="kicker">EPICYCLES</div>
+      <h2 class="title">We have 80 epicycles in MRM. <span class="text-pink">Some are visible.</span></h2>
+
+      <div class="epi-grid">
+        <div class="epi-col mint">
+          <div class="col-label">REGULATORY</div>
+          <ul>
+            <li>SR 11-7 &rarr; SR 26-2 mapping workstream</li>
+            <li>EU AI Act crosswalk addendum</li>
+            <li>Quarterly attestation memo to the CRO</li>
+            <li>Hyperscaler shared-responsibility matrix</li>
+          </ul>
+        </div>
+        <div class="epi-col cyan">
+          <div class="col-label">INTERNAL POLICY</div>
+          <ul>
+            <li>Standalone &ldquo;Responsible AI&rdquo; policy</li>
+            <li>GenAI working group, weekly</li>
+            <li>EUC carve-out for spreadsheets</li>
+            <li>Separate vendor model policy</li>
+          </ul>
+        </div>
+        <div class="epi-col yellow">
+          <div class="col-label">INVENTORY</div>
+          <ul>
+            <li>Second &ldquo;AI inventory,&rdquo; reconciled by hand</li>
+            <li>LLM / prompt registry</li>
+            <li>Vendor model attestation tracker</li>
+            <li>Shadow inventory in SharePoint</li>
+          </ul>
+        </div>
+        <div class="epi-col grad">
+          <div class="col-label">EVIDENCE &amp; APPROVAL</div>
+          <ul>
+            <li>GenAI sub-committee of the MRMC</li>
+            <li>Bias &amp; fairness appendix on every report</li>
+            <li>Hallucination test pack (revised quarterly)</li>
+            <li>SHAP-or-die explainability section</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="body italic" style="margin-top: 38px;">Every single one of these solves a real problem. But the fact that there are eighty of them is a red flag. Nobody ever went back and rewrote the definition of &ldquo;model.&rdquo;</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 7 — TIMELINE (regulatory lag as an epicycle)                  -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="7">
+      <div class="kicker">TIMELINE</div>
+      <h2 class="title">Only following lagged regulations <span class="text-pink">is an epicycle.</span></h2>
+      <p class="body" style="margin-top: 20px;">
+        Average lag: three to five years. Each framework solved the previous crisis; each gap it left became another circle to add to the diagram.
+      </p>
+
+      <table class="timeline">
+        <thead>
+          <tr>
+            <th class="year-h">YEAR</th>
+            <th>TRIGGER</th>
+            <th class="gap">LAG</th>
+            <th>RESPONSE</th>
+            <th class="gap">WHAT IT DIDN&rsquo;T FIX</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="year">1998</td><td class="trigger">LTCM collapses</td><td class="lag"><span class="lagbar" style="width:18px"></span>1y</td><td class="response">PWG report on hedge funds</td><td class="gap">Correlation &amp; liquidity left for a decade</td></tr>
+          <tr><td class="year">2000</td><td class="trigger">Post-LTCM model failures</td><td class="lag"><span class="lagbar" style="width:36px"></span>2y</td><td class="response">OCC 2000-16: Model Validation</td><td class="gap">Validation only; no inventory, no lifecycle</td></tr>
+          <tr><td class="year">2008</td><td class="trigger">Subprime / structured credit</td><td class="lag"><span class="lagbar" style="width:54px"></span>3y</td><td class="response">SR 11-7  (Apr 2011)</td><td class="gap">Defined model risk, not what a model is</td></tr>
+          <tr><td class="year">2012</td><td class="trigger">London Whale + Knight Capital</td><td class="lag"><span class="lagbar" style="width:6px"></span>0y</td><td class="response">SEC 15c3-5 re-emphasized; consents</td><td class="gap">Algo &amp; change-mgmt by analogy</td></tr>
+          <tr><td class="year">2022</td><td class="trigger">ChatGPT &amp; GPT-4</td><td class="lag"><span class="lagbar" style="width:36px"></span>2y</td><td class="response">EU AI Act  (Aug 2024)</td><td class="gap">Static risk-tier; agentic outpaces it</td></tr>
+          <tr><td class="year">2024</td><td class="trigger">GenAI / agents in production</td><td class="lag"><span class="lagbar" style="width:36px"></span>2y</td><td class="response">SR 26-2 revision  (Apr 2026)</td><td class="gap">Chasing yesterday&rsquo;s tech as it ships</td></tr>
+        </tbody>
+      </table>
+
+      <p class="body italic" style="margin-top: 28px;">Each rule tried to fix the last breakdown. None of them saw the next one coming.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 8 — THE DIP                                                   -->
+    <!-- ============================================================ -->
+    <section class="slide slide-viz" data-num="8" style="padding-bottom: 24px;">
+      <h2 class="title">What fixing it actually looks like.</h2>
+      <p class="body" style="margin-top: 8px; font-size: 24px; color: var(--text-muted); font-style: italic;">It gets worse before it gets better. Then the velocity compounds.</p>
+      <div class="dip-frame-wrap" style="margin-top: 0;">
+        <iframe src="viz/governance-dip.html" title="The governance dip"></iframe>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 9 — DEFINE THE MODEL                                          -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="9">
+      <div class="kicker">WHAT TO DO ABOUT IT</div>
+      <h1 class="title" style="margin-top: 120px; font-size: 152px;">Define the model.</h1>
+      <div class="gradient-bar" style="width: 1700px; margin-top: 60px;"></div>
+      <p class="lede" style="margin-top: 40px; font-size: 32px;">One definition. A shared language for model risk.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 10 — WHAT IS A MODEL?                                         -->
+    <!-- ============================================================ -->
+    <section class="slide slide-viz" data-num="10">
+      <h2 class="title">A model is <span class="text-pink">simply a function.</span></h2>
+      <div class="modeldef-frame-wrap">
+        <iframe src="viz/modeldefinition-intro-slide.html" title="A model is a typed operator — intro"></iframe>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 11 — DEFINITION (detailed: typed operator atom)               -->
+    <!-- ============================================================ -->
+    <section class="slide slide-viz" data-num="11">
+      <h2 class="title">Governance has to cover the function, <span class="text-mint">not just the formula.</span></h2>
+      <div class="modeldef-frame-wrap">
+        <iframe src="viz/modeldefinition-slide.html" title="A model is a typed operator"></iframe>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 12 — BLACK-SCHOLES AS A MODEL                                 -->
+    <!-- ============================================================ -->
+    <section class="slide slide-viz" data-num="12">
+      <h2 class="title">A hedging program is <span class="text-cyan">a series of functions.</span></h2>
+      <div class="modeldef-frame-wrap">
+        <iframe src="viz/bsmodel-slide.html" title="Black-Scholes as a typed operator"></iframe>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 13 — LLM AS A MODEL                                           -->
+    <!-- ============================================================ -->
+    <section class="slide slide-viz" data-num="13">
+      <h2 class="title">AI is <span class="text-pink">just a series of functions.</span></h2>
+      <div class="modeldef-frame-wrap">
+        <iframe src="viz/llm-slide.html" title="LLM as a typed operator"></iframe>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 14 — PAYOFF                                                   -->
+    <!-- ============================================================ -->
+    <section class="slide stacked-three" data-num="14">
+      <div class="kicker">PAYOFF</div>
+      <h2 class="title line-1">Define the model.</h2>
+      <h2 class="title line-3">Govern the model.</h2>
+      <div class="gradient-bar"></div>
+      <div class="coda">AI fits the framework you already have.</div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 15 — DEMO PLACEHOLDER                                         -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="15">
+      <div class="kicker">DEMO</div>
+      <h1 class="title" style="margin-top: 120px; font-size: 152px;">Live in Domino.</h1>
+      <div class="gradient-bar" style="width: 1700px; margin-top: 60px;"></div>
+      <p class="lede" style="margin-top: 40px; font-size: 32px;">Same MRM. Every model class.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 16 — CLOSING                                                  -->
+    <!-- ============================================================ -->
+    <section class="slide slide-close" data-num="16">
+      <div class="gradient-top"></div>
+      <div class="l1">You can keep adding circles.</div>
+      <div class="l2">Or you can redraw the diagram.</div>
+      <div class="coda">Governance should be evaluation up front, not a painful hedge after the fact.</div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 17 — Q&A                                                      -->
+    <!-- ============================================================ -->
+    <section class="slide" data-num="17">
+      <div class="kicker">Q &amp; A</div>
+      <div class="qa-row">
+        <div class="left">
+          <h2>Thank you.</h2>
+          <div class="gradient-bar"></div>
+          <div class="name">NICHOLAS J. GOBLE, PhD</div>
+          <div class="org">Domino Data Lab</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HUD lives inside the deck so it scales with the slides -->
+    <div id="hud" class="hud">
+      <div class="brand">AI IS NOT SPECIAL  ·  N. GOBLE  ·  DOMINO DATA LAB</div>
+      <div class="pageno"><span id="cur">01</span> / <span id="tot">17</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="help-overlay" id="help">
+  <div class="help-card">
+    <h3>NAVIGATION</h3>
+    <div class="row"><kbd>&rarr;</kbd> <kbd>Space</kbd> next slide</div>
+    <div class="row"><kbd>&larr;</kbd> previous slide</div>
+    <div class="row"><kbd>Home</kbd> first &middot; <kbd>End</kbd> last</div>
+    <div class="row"><kbd>F</kbd> toggle fullscreen</div>
+    <div class="row"><kbd>?</kbd> hide this</div>
+    <div class="row" style="margin-top: 14px; color: var(--text-muted); font-size: 14px;">
+      Or use the URL: <code>#1</code> jumps to slide 1, <code>#17</code> to slide 17.
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---------- State ----------
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total  = slides.length;
+  document.getElementById('tot').textContent = String(total).padStart(2, '0');
+
+  let idx = 0;
+
+  function go(i) {
+    idx = Math.max(0, Math.min(total - 1, i));
+    slides.forEach(s => s.classList.remove('active'));
+    slides[idx].classList.add('active');
+    document.getElementById('cur').textContent = String(idx + 1).padStart(2, '0');
+    if (window.location.hash !== '#' + (idx + 1)) {
+      history.replaceState(null, '', '#' + (idx + 1));
+    }
+    // Nudge any iframe on the new slide to recompute layout — three.js and
+    // the epicycles canvas both listen to window resize to size their canvas.
+    // Also: the governance-dip viz should always restart from the beginning
+    // when the slide is shown, so reload it whenever the slide becomes active.
+    requestAnimationFrame(() => {
+      const frames = slides[idx].querySelectorAll('iframe');
+      frames.forEach(f => {
+        const src = f.getAttribute('src') || '';
+        if (src.includes('governance-dip')) {
+          // Force a full reload so the animation always starts at t=0.
+          // Strip any existing cache-buster, then re-add a fresh one.
+          const base = src.split('?')[0];
+          f.setAttribute('src', base + '?t=' + Date.now());
+        } else {
+          try { f.contentWindow && f.contentWindow.dispatchEvent(new Event('resize')); }
+          catch (e) {}
+        }
+      });
+    });
+  }
+
+  function next() { go(idx + 1); }
+  function prev() { go(idx - 1); }
+
+  // ---------- Keyboard ----------
+  window.addEventListener('keydown', (e) => {
+    // Don't steal events when typing in iframes
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    switch (e.key) {
+      case 'ArrowRight':
+      case ' ':
+      case 'PageDown':
+        e.preventDefault(); next(); break;
+      case 'ArrowLeft':
+      case 'PageUp':
+        e.preventDefault(); prev(); break;
+      case 'Home': e.preventDefault(); go(0); break;
+      case 'End':  e.preventDefault(); go(total - 1); break;
+      case 'f': case 'F':
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+        break;
+      case '?':
+        document.getElementById('help').classList.toggle('show');
+        break;
+      case 'Escape':
+        document.getElementById('help').classList.remove('show');
+        break;
+    }
+  });
+
+  // Click anywhere on the deck (not on iframes / links) to advance
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('iframe, a, button, .help-overlay, .hud')) return;
+    next();
+  });
+
+  // ---------- Hash routing ----------
+  function applyHash() {
+    const m = window.location.hash.match(/^#(\d+)/);
+    if (m) go(parseInt(m[1], 10) - 1);
+  }
+  window.addEventListener('hashchange', applyHash);
+
+  // ---------- Viewport scaling ----------
+  const deck = document.getElementById('deck');
+  function resize() {
+    const W = 1920, H = 1080;
+    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    deck.style.transform = `scale(${s})`;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Boot ----------
+  if (window.location.hash) applyHash();
+  else go(0);
+
+  // First-visit hint to discover the help key
+  setTimeout(() => {
+    const seen = sessionStorage.getItem('seenHelp');
+    if (!seen) {
+      document.getElementById('help').classList.add('show');
+      sessionStorage.setItem('seenHelp', '1');
+    }
+  }, 400);
+})();
+</script>
+</body>
+</html>

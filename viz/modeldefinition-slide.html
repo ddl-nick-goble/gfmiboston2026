@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A Model Is a Typed Operator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+<!-- KaTeX for proper math typesetting in the algebra equations and case-study annotations -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+        onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true},{left: '$', right: '$', display: false},{left: '\\(', right: '\\)', display: false}], throwOnError: false});"></script>
+<style>
+  :root {
+    /* ---------- Palette: Domino dark (matches GFMI Boston deck) ---------- */
+    --bg:           #0A0B0D;
+    --paper:        #14171C;       /* card / panel surface */
+    --paper-warm:   #1C2027;       /* slightly raised surface */
+    --paper-sunken: #08090B;       /* deepest surface */
+    --ink:          #FFFFFF;       /* primary text */
+    --text-body:    #D5D9E1;
+    --muted:        #8A93A0;
+    --rule:         #242932;       /* hairline border */
+    --rule-strong:  #3A4150;       /* prominent border */
+
+    --accent:       #EC4899;       /* signature pink — emphasis text & chrome */
+    --accent-soft:  rgba(236, 72, 153, 0.18);
+
+    /* ---------- Diagram color axes (mapped to deck accents) ---------- */
+    --c-input:   #4DD0E1;   /* cyan  — typed input X (deck "ML / typed" accent) */
+    --c-output:  #F97316;   /* orange — typed output Y */
+    --c-op:      #FFFFFF;   /* white  — the operator itself */
+    --c-data:    #2DE2A0;   /* mint   — Ω_data */
+    --c-compute: #1A8E64;   /* mint-dim — Ω_compute */
+    --c-config:  #F4D03F;   /* yellow — Ω_config */
+    --c-router:  #A855F7;   /* purple — dynamic router */
+    --c-version: #EC4899;   /* pink   — version index */
+
+    --orbit:      #2A3140;
+    --orbit-soft: #1F242D;
+
+    --serif: "Playfair Display", "Times New Roman", Georgia, serif;
+    --sans:  "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+    --mono:  "JetBrains Mono", "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ---------- Stage: 1920×1080 canvas, scaled to viewport ---------- */
+  .stage {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1920px;
+    height: 1080px;
+    margin-left: -960px;
+    margin-top: -540px;
+    transform-origin: center center;
+    background: var(--bg);
+  }
+  .container {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    display: grid;
+    /* minmax(0, …) is the trick — without it grid rows expand to fit content
+       and ignore the fr ratios, which is what was happening before */
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  /* ---------- masthead ---------- */
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: clamp(24px, 2.8vw, 36px);
+    line-height: 1.06;
+    letter-spacing: -0.012em;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .dek {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(14px, 1.3vw, 16px);
+    color: var(--text-body);
+    max-width: 1020px;
+    margin: 0 0 16px;
+    line-height: 1.42;
+  }
+
+  /* ---------- panels ---------- */
+  .panel {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-bottom: 0;
+  }
+  /* slide 1: atom panel takes top row, algebra takes bottom — strict heights */
+  .panel.atom {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+  .panel.atom .atom-grid {
+    flex: 1;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .panel.atom .atom-svg-wrap {
+    height: 100%;
+    padding: 0;                 /* drop wrap padding entirely; panel padding is enough */
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;               /* remove inner border to feel more like a slide region */
+    background: transparent;
+  }
+  /* SVG fills the box; preserveAspectRatio="xMidYMid meet" (default) keeps
+     the diagram centered and proportional within whatever shape it gets */
+  .panel.atom .atom-svg-wrap svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .panel.algebra-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .panel.algebra-panel .algebra {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .panel.algebra-panel .alg-card {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .panel.algebra-panel .alg-card svg {
+    max-height: 140px;
+    flex-shrink: 1;
+  }
+  .panel.algebra-panel .algebra { gap: 18px; }
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 12px;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .panel-title {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 19px;
+    line-height: 1.1;
+  }
+  .panel-title small {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 10px;
+    letter-spacing: 0;
+  }
+  .panel-sub {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ---------- atom row ---------- */
+  .atom-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .atom-svg-wrap {
+    background: var(--paper-warm);
+    border: none;
+    padding: 0;
+    position: relative;
+  }
+  .atom-svg-wrap svg { display: block; width: 100%; height: auto; }
+  .atom-caption {
+    position: absolute;
+    top: 18px;
+    left: 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    background: rgba(20, 23, 28, 0.85);
+    padding: 6px 12px;
+    font-weight: 600;
+  }
+
+  .atom-key {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .formal {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--text-body);
+  }
+  .formal .sig {
+    font-family: var(--mono);
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--ink);
+    display: block;
+    margin: 6px 0 10px;
+    letter-spacing: 0;
+  }
+  .formal .sig .v {
+    color: var(--c-version);
+    font-size: 12px;
+    vertical-align: super;
+    font-weight: 700;
+  }
+  .formal em { font-style: italic; color: var(--accent); }
+
+  .axiom-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .axiom {
+    border: 1px solid var(--rule);
+    padding: 8px 9px 9px;
+    background: var(--paper-warm);
+  }
+  .axiom .num {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 2px;
+  }
+  .axiom .name {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1.1;
+    margin-bottom: 3px;
+  }
+  .axiom .gloss {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    color: var(--text-body);
+    line-height: 1.32;
+  }
+
+  .keyrow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+    border-top: 1px solid var(--rule);
+    padding-top: 12px;
+  }
+  .keyrow .item {
+    font-size: 12px;
+    color: var(--text-body);
+    line-height: 1.4;
+  }
+  .keyrow .item .lab {
+    font-family: var(--sans);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    margin-bottom: 2px;
+    color: var(--muted);
+  }
+  .keyrow .item .lab .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: 0;
+  }
+
+  /* ---------- algebra strip ---------- */
+  .algebra {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 980px) {
+    .algebra { grid-template-columns: repeat(2, 1fr); }
+  }
+  .alg-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 22px 22px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .alg-card .alg-eyebrow {
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .alg-card .alg-name {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 1.05;
+    margin-bottom: 6px;
+  }
+  .alg-card .alg-notation {
+    font-family: var(--mono);
+    font-size: 17px;
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+  .alg-card svg { display: block; width: 100%; height: auto; margin-top: 6px; }
+  .alg-card .alg-eqn {
+    font-family: var(--mono);
+    font-size: 19px;
+    color: var(--ink);
+    background: var(--paper-warm);
+    border-top: 1px solid var(--rule);
+    padding: 14px 8px 10px;
+    margin-top: 12px;
+    text-align: center;
+    letter-spacing: 0;
+  }
+  .alg-card .alg-deriv {
+    font-family: var(--mono);
+    font-size: 17px;
+    color: var(--accent);
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
+  .alg-card .alg-deriv .lab {
+    color: var(--muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .alg-card .alg-gloss {
+    font-family: var(--sans);
+    font-size: 17px;
+    color: var(--text-body);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dotted var(--rule);
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  /* ---------- case studies ---------- */
+  .cases {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 980px) { .cases { grid-template-columns: 1fr; } }
+  .case-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 22px 24px 24px;
+    display: flex;
+    flex-direction: column;
+  }
+  .case-card .case-eyebrow {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin-bottom: 3px;
+  }
+  .case-card .case-name {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .case-card .case-notation {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-bottom: 14px;
+    line-height: 1.35;
+  }
+  .case-svg-wrap {
+    background: var(--paper-warm);
+    border: 1px solid var(--rule);
+    padding: 12px;
+  }
+  .case-svg-wrap svg { display: block; width: 100%; height: auto; }
+  .case-card .case-eqn {
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--ink);
+    background: var(--paper-warm);
+    border-top: 1px solid var(--rule);
+    padding: 14px 6px 10px;
+    margin-top: 14px;
+    text-align: center;
+    letter-spacing: 0;
+  }
+  .case-card .case-deriv {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
+  .case-card .case-deriv .lab {
+    color: var(--muted);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .case-card .case-gloss {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--text-body);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dotted var(--rule);
+    line-height: 1.45;
+    text-align: center;
+  }
+  .case-foot {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 26px;
+  }
+  .case-foot .factoid {
+    font-size: 14px;
+    color: var(--text-body);
+    line-height: 1.4;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .case-foot .factoid .lab {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 700;
+    color: var(--muted);
+    flex: 0 0 116px;
+    line-height: 1.35;
+  }
+  .case-foot .factoid .body { flex: 1; }
+  .case-foot .factoid .num {
+    font-family: var(--serif);
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    margin-right: 8px;
+  }
+  .case-foot .factoid em { font-style: italic; color: var(--accent); }
+
+  /* ---------- notes ---------- */
+  .notes {
+    border-top: 2px solid var(--accent);
+    padding-top: 18px;
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-body);
+    column-count: 3;
+    column-gap: 32px;
+    column-rule: 1px solid var(--rule);
+  }
+  @media (max-width: 880px) { .notes { column-count: 1; } }
+  .notes p { margin: 0 0 12px; break-inside: avoid; }
+  .notes strong {
+    font-family: var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 700;
+    display: inline-block;
+    margin-right: 4px;
+  }
+  .notes em { color: var(--accent); font-style: italic; }
+  .notes code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: rgba(236, 72, 153, 0.10);
+    padding: 1px 4px;
+    color: var(--ink);
+  }
+
+  .byline {
+    font-family: var(--sans);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-top: 26px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* ---------- shared SVG styling ---------- */
+  .label-sans {
+    font-family: "Source Sans 3", Helvetica, Arial, sans-serif;
+    fill: var(--ink);
+  }
+  .label-serif {
+    font-family: "Playfair Display", Georgia, serif;
+    fill: var(--ink);
+  }
+  .label-mono {
+    font-family: "JetBrains Mono", monospace;
+    fill: var(--ink);
+  }
+  .lab-eyebrow {
+    font-family: "Source Sans 3", Helvetica, Arial, sans-serif;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    fill: var(--muted);
+    font-weight: 700;
+  }
+  .lab-muted { fill: var(--muted); }
+  .lab-accent { fill: var(--accent); }
+
+  /* flowing-dash animation for type signatures.
+     Each keyframe's end-offset must be an integer multiple of its dash
+     period so the loop closes seamlessly. flow-fast uses 6+4=10
+     (offset −30 = 3 periods); flow-slow uses 6+6=12 (offset −24 = 2
+     periods, also divides 3+3=6 used by Ω-feed paths). */
+  @keyframes flow-fast-anim {
+    to { stroke-dashoffset: -30; }
+  }
+  @keyframes flow-slow-anim {
+    to { stroke-dashoffset: -24; }
+  }
+  .flow-fast {
+    stroke-dasharray: 6 4;
+    animation: flow-fast-anim 1.6s linear infinite;
+  }
+  .flow-slow {
+    stroke-dasharray: 6 6;
+    animation: flow-slow-anim 4.5s linear infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.95; }
+    50% { opacity: 0.55; }
+  }
+  .pulse { animation: pulse 2.2s ease-in-out infinite; }
+
+  /* hover affordances on the atom diagram */
+  .hot:hover { cursor: help; }
+  .hot:hover .hot-fill { fill: rgba(236, 72, 153, 0.10); }
+
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="canvas" id="canvas">
+<div class="container">
+
+  <!-- ======================================================== -->
+  <!-- PANEL 1 — THE ATOM                                        -->
+  <!-- ======================================================== -->
+  <div class="panel atom">
+    <div class="atom-grid">
+
+      <!-- LEFT: the big diagram ------------------------------- -->
+      <div class="atom-svg-wrap">
+        <svg viewBox="0 30 760 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a typed operator with input X, environment Omega, and output Y">
+
+          <defs>
+            <!-- arrow heads -->
+            <marker id="arrInput" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-input)"/>
+            </marker>
+            <marker id="arrOutput" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-output)"/>
+            </marker>
+            <marker id="arrData" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-data)"/>
+            </marker>
+            <marker id="arrCompute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-compute)"/>
+            </marker>
+            <marker id="arrConfig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--c-config)"/>
+            </marker>
+
+            <pattern id="diag-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M40,0 L0,0 L0,40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            </pattern>
+          </defs>
+
+          <!-- subtle grid background (drafting paper feel) -->
+          <rect x="0" y="0" width="760" height="350" fill="url(#diag-grid)"/>
+
+          <!-- ============== INPUT (left) ============== -->
+          <g transform="translate(0, 0)">
+            <text x="40" y="118" class="lab-eyebrow">Typed Input · X</text>
+            <text x="40" y="134" class="label-mono" font-size="14" font-weight="600" fill="var(--c-input)">x ∈ X</text>
+
+            <!-- input chip showing structure (aligned with operator: y=140–240) -->
+            <g transform="translate(40, 140)">
+              <rect x="0" y="0" width="148" height="100" fill="var(--paper-warm)" stroke="var(--c-input)" stroke-width="1.2"/>
+              <line x1="0" y1="22" x2="148" y2="22" stroke="var(--c-input)" stroke-width="0.6" opacity="0.4"/>
+              <text x="8" y="15" class="label-mono" font-size="9" fill="var(--c-input)" font-weight="600">X = (x₁, x₂, …, xₙ)</text>
+              <text x="8" y="40" class="label-mono" font-size="10.5" fill="var(--text-body)">type:  ℝⁿ</text>
+              <text x="8" y="56" class="label-mono" font-size="10.5" fill="var(--text-body)">dim:   n = 32</text>
+              <text x="8" y="72" class="label-mono" font-size="10.5" fill="var(--text-body)">domain: D ⊂ X</text>
+              <text x="8" y="88" class="label-mono" font-size="10.5" fill="var(--text-body)">prov:  upstream</text>
+            </g>
+
+            <!-- the input arrow -->
+            <line x1="190" y1="190" x2="278" y2="190"
+                  stroke="var(--c-input)" stroke-width="2"
+                  marker-end="url(#arrInput)"
+                  class="flow-fast"/>
+            <text x="220" y="183" class="label-mono" font-size="10" fill="var(--c-input)" text-anchor="middle">x</text>
+            <text x="220" y="206" class="lab-eyebrow" text-anchor="middle">∂y/∂x</text>
+          </g>
+
+          <!-- ============== ENVIRONMENT (top) ============== -->
+          <g transform="translate(0, 0)">
+            <!-- container bracket -->
+            <text x="380" y="46" class="lab-eyebrow" text-anchor="middle">Environment · Ω(t)</text>
+
+            <!-- three Ω components arranged above the operator -->
+            <g transform="translate(286, 52)">
+              <!-- Ω_data -->
+              <g>
+                <rect x="0" y="0" width="62" height="34" fill="var(--paper-warm)" stroke="var(--c-data)" stroke-width="1"/>
+                <text x="31" y="14" class="label-mono" font-size="9" fill="var(--c-data)" font-weight="600" text-anchor="middle">Ω_data</text>
+                <text x="31" y="26" class="label-mono" font-size="8" fill="var(--text-body)" text-anchor="middle">daily</text>
+              </g>
+              <!-- Ω_compute -->
+              <g transform="translate(72, 0)">
+                <rect x="0" y="0" width="62" height="34" fill="var(--paper-warm)" stroke="var(--c-compute)" stroke-width="1"/>
+                <text x="31" y="14" class="label-mono" font-size="9" fill="var(--c-compute)" font-weight="600" text-anchor="middle">Ω_compute</text>
+                <text x="31" y="26" class="label-mono" font-size="8" fill="var(--text-body)" text-anchor="middle">quarterly</text>
+              </g>
+              <!-- Ω_config -->
+              <g transform="translate(144, 0)">
+                <rect x="0" y="0" width="62" height="34" fill="var(--paper-warm)" stroke="var(--c-config)" stroke-width="1"/>
+                <text x="31" y="14" class="label-mono" font-size="9" fill="var(--c-config)" font-weight="600" text-anchor="middle">Ω_config</text>
+                <text x="31" y="26" class="label-mono" font-size="8" fill="var(--text-body)" text-anchor="middle">deliberate</text>
+              </g>
+            </g>
+
+            <!-- streams flowing into the box top -->
+            <path d="M 317,86 C 317,110 350,130 380,140"
+                  fill="none" stroke="var(--c-data)" stroke-width="1.4"
+                  marker-end="url(#arrData)"
+                  class="flow-slow"/>
+            <path d="M 389,86 L 389,140"
+                  fill="none" stroke="var(--c-compute)" stroke-width="1.4"
+                  marker-end="url(#arrCompute)"
+                  class="flow-slow"/>
+            <path d="M 461,86 C 461,110 428,130 398,140"
+                  fill="none" stroke="var(--c-config)" stroke-width="1.4"
+                  marker-end="url(#arrConfig)"
+                  class="flow-slow"/>
+
+          </g>
+
+          <!-- ============== THE OPERATOR ============== -->
+          <g transform="translate(280, 140)">
+
+            <!-- soft glow halo -->
+            <rect x="-4" y="-4" width="232" height="108" fill="rgba(255,255,255,0.04)"/>
+
+            <!-- the box -->
+            <rect x="0" y="0" width="224" height="100" fill="var(--paper-warm)" stroke="var(--c-op)" stroke-width="1.6"/>
+
+            <!-- inner double rule (NYT chapeau) -->
+            <line x1="0" y1="22" x2="224" y2="22" stroke="var(--c-op)" stroke-width="0.6"/>
+            <text x="11" y="15" class="label-mono" font-size="9.5" fill="var(--c-op)" font-weight="600">M</text>
+            <text x="22" y="11" class="label-mono" font-size="8" fill="var(--c-version)" font-weight="700">v</text>
+            <text x="32" y="15" class="lab-muted" font-size="9.5" font-family="JetBrains Mono">: X × Ω → Y</text>
+
+            <!-- the operator glyph -->
+            <g transform="translate(112, 65)">
+              <text class="label-serif" font-size="42" font-style="italic" font-weight="700"
+                    text-anchor="middle" dominant-baseline="middle" fill="var(--c-op)">ƒ</text>
+            </g>
+
+            <!-- version stamp (bottom-right corner) -->
+            <g transform="translate(176, 76)">
+              <rect x="0" y="0" width="42" height="18" fill="var(--c-version)" stroke="none"/>
+              <text x="21" y="13" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700"
+                    fill="#fff" text-anchor="middle">v = 7</text>
+            </g>
+
+          </g>
+
+          <!-- ============== OUTPUT (right) ============== -->
+          <g transform="translate(0, 0)">
+            <!-- output arrow -->
+            <line x1="504" y1="190" x2="572" y2="190"
+                  stroke="var(--c-output)" stroke-width="2"
+                  marker-end="url(#arrOutput)"
+                  class="flow-fast"/>
+            <text x="538" y="183" class="label-mono" font-size="10" fill="var(--c-output)" text-anchor="middle">y</text>
+            <text x="538" y="206" class="lab-eyebrow" text-anchor="middle">∂y/∂Ω</text>
+
+            <text x="580" y="118" class="lab-eyebrow" text-anchor="start">Typed Output · Y</text>
+            <text x="580" y="134" class="label-mono" font-size="14" font-weight="600" fill="var(--c-output)">y ∈ Y</text>
+
+            <!-- output chip aligned with operator: y=140–240 -->
+            <g transform="translate(580, 140)">
+              <rect x="0" y="0" width="148" height="100" fill="var(--paper-warm)" stroke="var(--c-output)" stroke-width="1.2"/>
+              <line x1="0" y1="22" x2="148" y2="22" stroke="var(--c-output)" stroke-width="0.6" opacity="0.4"/>
+              <text x="8" y="15" class="label-mono" font-size="9" fill="var(--c-output)" font-weight="600">y = ƒ(x, Ω)</text>
+              <text x="8" y="40" class="label-mono" font-size="10.5" fill="var(--text-body)">type:   ℝᵐ</text>
+              <text x="8" y="56" class="label-mono" font-size="10.5" fill="var(--text-body)">dim:    m = 1</text>
+              <text x="8" y="72" class="label-mono" font-size="10.5" fill="var(--text-body)">range:  bounded</text>
+              <text x="8" y="88" class="label-mono" font-size="10.5" fill="var(--text-body)">audit:  hashed</text>
+            </g>
+          </g>
+
+          <!-- ============== VERSION TRANSITION (below) ============== -->
+          <g transform="translate(0, 240)">
+            <text x="380" y="14" class="lab-eyebrow" text-anchor="middle">Version Transition · T : (M<tspan baseline-shift="super" font-size="7">v</tspan>, Δ) → M<tspan baseline-shift="super" font-size="7">v+1</tspan></text>
+
+            <!-- timeline -->
+            <line x1="80" y1="60" x2="680" y2="60" stroke="var(--rule-strong)" stroke-width="1"/>
+            <line x1="80" y1="56" x2="80" y2="64" stroke="var(--rule-strong)" stroke-width="1"/>
+            <line x1="680" y1="56" x2="680" y2="64" stroke="var(--rule-strong)" stroke-width="1"/>
+
+            <!-- version pips -->
+            <g font-family="JetBrains Mono" font-size="9.5">
+              <g transform="translate(110, 60)">
+                <circle r="4.5" fill="var(--paper-warm)" stroke="var(--c-version)" stroke-width="1.4"/>
+                <text y="22" text-anchor="middle" fill="var(--c-version)" font-weight="700">v=4</text>
+                <text y="-12" text-anchor="middle" fill="var(--muted)" font-size="8">retrain</text>
+              </g>
+              <g transform="translate(220, 60)">
+                <circle r="4.5" fill="var(--paper-warm)" stroke="var(--c-version)" stroke-width="1.4"/>
+                <text y="22" text-anchor="middle" fill="var(--c-version)" font-weight="700">v=5</text>
+                <text y="-12" text-anchor="middle" fill="var(--muted)" font-size="8">code patch</text>
+              </g>
+              <g transform="translate(345, 60)">
+                <circle r="4.5" fill="var(--paper-warm)" stroke="var(--c-version)" stroke-width="1.4"/>
+                <text y="22" text-anchor="middle" fill="var(--c-version)" font-weight="700">v=6</text>
+                <text y="-12" text-anchor="middle" fill="var(--muted)" font-size="8">LoRA adapter</text>
+              </g>
+              <g transform="translate(490, 60)">
+                <circle r="6" fill="var(--c-version)" stroke="var(--c-version)" stroke-width="1.4"/>
+                <text y="22" text-anchor="middle" fill="var(--c-version)" font-weight="700">v=7 · current</text>
+                <text y="-12" text-anchor="middle" fill="var(--muted)" font-size="8">recalibration</text>
+              </g>
+              <g transform="translate(620, 60)">
+                <circle r="4.5" fill="var(--paper-warm)" stroke="var(--rule-strong)" stroke-width="1.4" stroke-dasharray="2 2"/>
+                <text y="22" text-anchor="middle" fill="var(--muted)" font-weight="700">v=8?</text>
+                <text y="-12" text-anchor="middle" fill="var(--muted)" font-size="8">pending Δ</text>
+              </g>
+            </g>
+
+            <!-- magnitude under -->
+            <text x="380" y="100" class="lab-eyebrow" text-anchor="middle" fill="var(--c-version)">∂y/∂v · the magnitude of each transition is itself a measurable quantity</text>
+          </g>
+        </svg>
+      </div>
+
+    </div>
+  </div>
+
+
+</div>
+</div>
+</div>
+<script>
+  // scale 1920×1080 canvas to fit viewport
+  (function() {
+    var canvas = document.getElementById('canvas');
+    function fit() {
+      var sx = window.innerWidth  / 1920;
+      var sy = window.innerHeight / 1080;
+      var s  = Math.min(sx, sy);
+      canvas.style.transform = 'scale(' + s + ')';
+    }
+    window.addEventListener('resize', fit);
+    fit();
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Epicycles · Slide Asset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --paper: #14171C;
+    --ink: #FFFFFF;
+    --muted: #8A93A0;
+    --rule: #242932;
+    --rule-strong: #404754;
+    --sun: #F4D03F;
+    --sun-glow: rgba(244, 208, 63, 0.32);
+    --earth: #4DD0E1;
+    --moon: #8A93A0;
+    --jupiter: #EC4899;
+    --jupiter-soft: rgba(236, 72, 153, 0.55);
+    --orbit: #2F3540;
+    --orbit-soft: #1F242D;
+    --accent: #2DE2A0;
+    --serif: "Playfair Display", "Times New Roman", Georgia, serif;
+    --sans: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Stage: 1740×720 design canvas, scaled to viewport ----------
+     Sized to match the iframe slot in slide 4 of the host deck (gfmi-talk).
+     With the host slide using slide-viz (no kicker, tight top padding),
+     this iframe gains ~100px of height — the canvas-wraps and controls can
+     all breathe more, and the orbital diagrams scale up significantly. */
+  .stage {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .deck {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1740px;
+    height: 895px;
+    margin-top: -447.5px;
+    margin-left: -870px;
+    transform-origin: 50% 50%;
+    padding: 14px 24px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 14px 22px 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 36px;
+    line-height: 1.1;
+  }
+  .panel-sub {
+    font-family: var(--sans);
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  /* Canvas-wrap takes the remaining vertical room inside the panel and
+     locks its width to a square via aspect-ratio. The canvas inside auto-
+     fills via width/height: 100% and the JS uses devicePixelRatio. */
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    aspect-ratio: 1 / 1;
+    max-width: 100%;
+    margin: 0 auto;
+    background: #08090B;
+    border: 1px solid var(--rule);
+    min-height: 0;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .canvas-caption {
+    position: absolute;
+    top: 20px;
+    left: 22px;
+    font-family: var(--sans);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--muted);
+    background: rgba(8, 9, 11, 0.85);
+    padding: 6px 12px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    font-size: 16px;
+    color: #D5D9E1;
+    flex-shrink: 0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .swatch {
+    width: 14px; height: 14px; border-radius: 50%;
+    display: inline-block; flex-shrink: 0;
+  }
+  .swatch.line {
+    width: 22px; height: 0; border-top: 3px dashed var(--orbit); border-radius: 0;
+  }
+  .swatch.trace {
+    width: 22px; height: 0; border-top: 3px solid var(--jupiter-soft); border-radius: 0;
+  }
+
+  .controls {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 14px 26px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px 32px;
+    flex-shrink: 0;
+  }
+  .control { display: flex; flex-direction: column; gap: 6px; }
+  .control-label {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  .control-label > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .control-value {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--ink);
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--rule-strong);
+    outline: none;
+    margin: 4px 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ink);
+    cursor: pointer;
+    border: 0;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ink);
+    cursor: pointer;
+    border: 0;
+  }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    font-family: var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--bg);
+    cursor: pointer;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  button.secondary {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  button:hover { opacity: 0.82; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="deck" id="deck">
+
+    <div class="panels">
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">The Geocentric View</div>
+          <div class="panel-sub">Earth at the center</div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="geo"></canvas>
+          <div class="canvas-caption">Earth at center · Jupiter on a deferent + epicycle</div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="swatch" style="background:var(--earth)"></span>Earth</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--moon)"></span>Moon</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--sun)"></span>Sun</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--jupiter)"></span>Jupiter</div>
+          <div class="legend-item"><span class="swatch trace"></span>Apparent path</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">The Heliocentric View</div>
+          <div class="panel-sub">Sun at the center</div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="helio"></canvas>
+          <div class="canvas-caption">Sun at center · circular orbits</div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="swatch" style="background:var(--sun)"></span>Sun</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--earth)"></span>Earth</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--moon)"></span>Moon</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--jupiter)"></span>Jupiter</div>
+          <div class="legend-item"><span class="swatch line"></span>Orbit</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control">
+        <div class="control-label"><span>Playback</span></div>
+        <div class="btn-row">
+          <button id="playBtn">Pause</button>
+          <button id="resetBtn" class="secondary">Reset</button>
+        </div>
+      </div>
+      <div class="control">
+        <div class="control-label"><span>Speed</span><span class="control-value" id="speedVal">3×</span></div>
+        <input type="range" id="speed" min="0" max="11" step="1" value="4" />
+      </div>
+      <div class="control">
+        <div class="control-label"><span>Orbit ratio</span><span class="control-value" id="ratioVal">12 : 1</span></div>
+        <input type="range" id="ratio" min="2" max="20" step="1" value="12" />
+      </div>
+      <div class="control">
+        <div class="control-label"><span>Orders</span><span class="control-value" id="ordersVal">1st</span></div>
+        <input type="range" id="orders" min="1" max="10" step="1" value="1" />
+      </div>
+      <div class="control">
+        <div class="control-label"><span>Epi. width</span><span class="control-value" id="epicycleScaleVal">1.00×</span></div>
+        <input type="range" id="epicycleScale" min="0.3" max="3.0" step="0.05" value="1" />
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ---------- Scale the 1740×720 deck to fit the viewport ----------
+(function () {
+  const deck = document.getElementById("deck");
+  function resize() {
+    const W = 1740, H = 895;
+    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    deck.style.transform = `scale(${s})`;
+    // Notify the canvas code so it can re-measure for DPR.
+    window.dispatchEvent(new Event("epicycles-resize"));
+  }
+  window.addEventListener("resize", resize);
+  resize();
+})();
+
+(function () {
+  "use strict";
+
+  const helio = document.getElementById("helio");
+  const geo = document.getElementById("geo");
+  const ctxH = helio.getContext("2d");
+  const ctxG = geo.getContext("2d");
+
+  // Read CSS color tokens so JS and CSS stay in sync.
+  const css = getComputedStyle(document.documentElement);
+  const C = {
+    sun: css.getPropertyValue("--sun").trim(),
+    sunGlow: css.getPropertyValue("--sun-glow").trim(),
+    earth: css.getPropertyValue("--earth").trim(),
+    moon: css.getPropertyValue("--moon").trim(),
+    jupiter: css.getPropertyValue("--jupiter").trim(),
+    jupiterSoft: css.getPropertyValue("--jupiter-soft").trim(),
+    orbit: css.getPropertyValue("--orbit").trim(),
+    orbitSoft: css.getPropertyValue("--orbit-soft").trim(),
+    ink: css.getPropertyValue("--ink").trim(),
+    muted: css.getPropertyValue("--muted").trim(),
+    rule: css.getPropertyValue("--rule").trim(),
+    accent: css.getPropertyValue("--accent").trim(),
+    paper: css.getPropertyValue("--paper").trim(),
+  };
+
+  const state = {
+    playing: true,
+    speed: 1,
+    ratio: 12,
+    epiRatio: 0.2,
+    epicycleScale: 1.0,
+    orders: 1,
+    t: 0,
+    geoTrail: [],
+  };
+
+  const MAX_ORDERS = 10;
+  const ORDER_PHASES = Array.from({ length: MAX_ORDERS }, (_, i) => (i === 0 ? Math.PI : 0));
+  const ORDER_DECAY = 0.5;
+
+  const WOBBLES_PER_OVERLAP = [1, 2, 3, 5, 7, 11, 13, 17, 19, 23];
+
+  function orderOmega(idx, ratio) {
+    const w = WOBBLES_PER_OVERLAP[idx];
+    return (w * (ratio - 1) + 1) / ratio;
+  }
+
+  function ordinal(n) {
+    const v = n % 100;
+    if (v >= 11 && v <= 13) return n + "th";
+    switch (n % 10) {
+      case 1: return n + "st";
+      case 2: return n + "nd";
+      case 3: return n + "rd";
+      default: return n + "th";
+    }
+  }
+
+  function resize() {
+    [helio, geo].forEach((c) => {
+      const rect = c.getBoundingClientRect();
+      // Use the unscaled (CSS) box size — getBoundingClientRect reflects the
+      // post-transform size, so we back out the scale factor to draw at
+      // native deck resolution and avoid blurry orbits at small viewports.
+      const deck = document.getElementById("deck");
+      const m = deck.style.transform.match(/scale\(([0-9.]+)\)/);
+      const scaleFactor = m ? parseFloat(m[1]) : 1;
+      const dpr = (window.devicePixelRatio || 1);
+      const cssW = rect.width / scaleFactor;
+      const cssH = rect.height / scaleFactor;
+      c.width = Math.round(cssW * dpr);
+      c.height = Math.round(cssH * dpr);
+      c.style.width = "100%";
+      c.style.height = "100%";
+      const ctx = c.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Stash logical size so draw functions don't have to recompute.
+      c._logicalW = cssW;
+      c._logicalH = cssH;
+    });
+    state.geoTrail = [];
+  }
+  resize();
+  let resizeTimer;
+  function scheduleResize() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 120);
+  }
+  window.addEventListener("resize", scheduleResize);
+  window.addEventListener("epicycles-resize", scheduleResize);
+
+  function ring(ctx, cx, cy, r, color, width, dashes) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    if (dashes) ctx.setLineDash(dashes); else ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function disc(ctx, cx, cy, r, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  function glow(ctx, cx, cy, inner, outer, color1, color2) {
+    const g = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+    g.addColorStop(0, color1);
+    g.addColorStop(1, color2);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, outer, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  function label(ctx, text, x, y, color, size, weight, align) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = `${weight || 600} ${size}px "Source Sans 3", Helvetica, Arial, sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = align || "left";
+    ctx.strokeStyle = "rgba(8, 9, 11, 0.95)";
+    ctx.lineWidth = 4;
+    ctx.lineJoin = "round";
+    // Clamp to the canvas bounds so labels never spill past the edge.
+    const w = ctx.canvas._logicalW || (ctx.canvas.width / (window.devicePixelRatio || 1));
+    const h = ctx.canvas._logicalH || (ctx.canvas.height / (window.devicePixelRatio || 1));
+    // Estimate text width to keep right-aligned/left-aligned labels in-bounds.
+    const tw = ctx.measureText(text).width;
+    let xx = x;
+    if (align === "right") {
+      if (xx > w - 4) xx = w - 4;
+      if (xx - tw < 4) xx = tw + 4;
+    } else if (align === "center") {
+      if (xx + tw / 2 > w - 4) xx = w - 4 - tw / 2;
+      if (xx - tw / 2 < 4) xx = 4 + tw / 2;
+    } else {
+      if (xx + tw > w - 4) xx = w - 4 - tw;
+      if (xx < 4) xx = 4;
+    }
+    let yy = y;
+    if (yy < 10) yy = 10;
+    if (yy > h - 10) yy = h - 10;
+    ctx.strokeText(text, xx, yy);
+    ctx.fillText(text, xx, yy);
+    ctx.restore();
+  }
+  function gridCross(ctx, cx, cy, reach) {
+    ctx.save();
+    ctx.strokeStyle = C.orbitSoft;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    ctx.moveTo(cx - reach, cy); ctx.lineTo(cx + reach, cy);
+    ctx.moveTo(cx, cy - reach); ctx.lineTo(cx, cy + reach);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function physicsFor(canvas) {
+    const w = canvas._logicalW || canvas.clientWidth;
+    const h = canvas._logicalH || canvas.clientHeight;
+    // Margin scales with canvas size so labels (which sit just past the
+    // outermost orbit) stay inside the canvas edge regardless of canvas dims.
+    const margin = Math.max(36, Math.min(w, h) * 0.14);
+    const halfMin = Math.min(w, h) / 2 - margin;
+    const jupR = halfMin / (1 + state.epiRatio);
+    const earthR = jupR * state.epiRatio;
+    const moonR = Math.max(14, earthR * 0.16);
+    return { w, h, cx: w / 2, cy: h / 2, earthR, jupR, moonR };
+  }
+
+  function drawHelio() {
+    const p = physicsFor(helio);
+    const omegaE = 1;
+    const omegaJ = omegaE / state.ratio;
+    const omegaM = omegaE * 13.37;
+
+    ctxH.fillStyle = "#08090B";
+    ctxH.fillRect(0, 0, p.w, p.h);
+
+    gridCross(ctxH, p.cx, p.cy, p.jupR + 28);
+
+    ring(ctxH, p.cx, p.cy, p.earthR, C.orbit, 2, [6, 6]);
+    ring(ctxH, p.cx, p.cy, p.jupR, C.orbit, 2, [6, 6]);
+
+    const ex = p.cx + p.earthR * Math.cos(state.t * omegaE);
+    const ey = p.cy + p.earthR * Math.sin(state.t * omegaE);
+    const jAng = state.t * omegaJ;
+    const jx = p.cx + p.jupR * Math.cos(jAng);
+    const jy = p.cy + p.jupR * Math.sin(jAng);
+    const mx = ex + p.moonR * Math.cos(state.t * omegaM);
+    const my = ey + p.moonR * Math.sin(state.t * omegaM);
+
+    ctxH.save();
+    ctxH.strokeStyle = "rgba(45, 226, 160, 0.40)";
+    ctxH.lineWidth = 1.6;
+    ctxH.setLineDash([3, 6]);
+    ctxH.beginPath();
+    ctxH.moveTo(ex, ey);
+    ctxH.lineTo(jx, jy);
+    ctxH.stroke();
+    ctxH.restore();
+
+    ring(ctxH, ex, ey, p.moonR, C.orbitSoft, 1.4, [3, 4]);
+
+    glow(ctxH, p.cx, p.cy, 14, 50, C.sunGlow, "rgba(244, 208, 63, 0)");
+    disc(ctxH, p.cx, p.cy, 16, C.sun);
+
+    disc(ctxH, ex, ey, 9, C.earth);
+    disc(ctxH, mx, my, 4.2, C.moon);
+    glow(ctxH, jx, jy, 9, 24, "rgba(236, 72, 153, 0.22)", "rgba(236, 72, 153, 0)");
+    disc(ctxH, jx, jy, 11, C.jupiter);
+
+    label(ctxH, "SUN", p.cx + 22, p.cy - 22, C.ink, 18);
+    // EARTH label intentionally omitted — at Orbit Ratio 12:1, Earth's orbit
+    // is so tight against the Sun that an "EARTH" label would collide with
+    // "SUN". The cyan dot + the legend identifies it.
+    label(ctxH, "JUPITER", jx + 18, jy - 18, C.ink, 18);
+  }
+
+  function drawGeo() {
+    const p = physicsFor(geo);
+    const omegaE = 1;
+    const omegaJ = omegaE / state.ratio;
+    const omegaM = omegaE * 13.37;
+    const orders = state.orders;
+
+    ctxG.fillStyle = "#08090B";
+    ctxG.fillRect(0, 0, p.w, p.h);
+
+    gridCross(ctxG, p.cx, p.cy, p.jupR + p.earthR + 28);
+
+    ring(ctxG, p.cx, p.cy, p.earthR, C.orbit, 2, [6, 6]);
+    ring(ctxG, p.cx, p.cy, p.moonR, C.orbitSoft, 1.4, [3, 4]);
+    ring(ctxG, p.cx, p.cy, p.jupR, C.orbit, 2, [6, 6]);
+
+    const dAng = state.t * omegaJ;
+    const points = [{ x: p.cx, y: p.cy }];
+    points.push({
+      x: p.cx + p.jupR * Math.cos(dAng),
+      y: p.cy + p.jupR * Math.sin(dAng),
+    });
+    const radii = [];
+    let r = p.earthR * state.epicycleScale;
+    for (let i = 0; i < orders; i++) {
+      radii.push(r);
+      const ang = state.t * omegaE * orderOmega(i, state.ratio) + ORDER_PHASES[i];
+      const last = points[points.length - 1];
+      points.push({
+        x: last.x + r * Math.cos(ang),
+        y: last.y + r * Math.sin(ang),
+      });
+      r *= ORDER_DECAY;
+    }
+    const jup = points[points.length - 1];
+
+    const VISIBLE_R = 5;
+    for (let i = 0; i < orders; i++) {
+      if (radii[i] < VISIBLE_R) break;
+      const center = points[i + 1];
+      const dashSize = Math.max(3, 5 - i * 0.7);
+      ring(ctxG, center.x, center.y, radii[i], C.orbitSoft, 1.6, [dashSize, dashSize]);
+    }
+
+    const exh = Math.cos(state.t * omegaE);
+    const eyh = Math.sin(state.t * omegaE);
+    const sgx = p.cx + p.earthR * -exh;
+    const sgy = p.cy + p.earthR * -eyh;
+
+    const mx = p.cx + p.moonR * Math.cos(state.t * omegaM);
+    const my = p.cy + p.moonR * Math.sin(state.t * omegaM);
+
+    state.geoTrail.push([jup.x, jup.y]);
+    const maxTrail = 2400;
+    if (state.geoTrail.length > maxTrail) {
+      state.geoTrail.splice(0, state.geoTrail.length - maxTrail);
+    }
+    const trail = state.geoTrail;
+    if (trail.length > 1) {
+      ctxG.save();
+      ctxG.lineWidth = 2.6;
+      ctxG.lineCap = "round";
+      ctxG.lineJoin = "round";
+      const segCount = trail.length - 1;
+      ctxG.strokeStyle = "rgba(236, 72, 153, 0.35)";
+      ctxG.beginPath();
+      ctxG.moveTo(trail[0][0], trail[0][1]);
+      for (let i = 1; i < trail.length; i++) ctxG.lineTo(trail[i][0], trail[i][1]);
+      ctxG.stroke();
+      const headStart = Math.max(0, segCount - 220);
+      ctxG.strokeStyle = "rgba(236, 72, 153, 0.90)";
+      ctxG.beginPath();
+      ctxG.moveTo(trail[headStart][0], trail[headStart][1]);
+      for (let i = headStart + 1; i < trail.length; i++) ctxG.lineTo(trail[i][0], trail[i][1]);
+      ctxG.stroke();
+      ctxG.restore();
+    }
+
+    ctxG.save();
+    ctxG.lineWidth = 1.5;
+    ctxG.setLineDash([4, 6]);
+    ctxG.strokeStyle = "rgba(213, 217, 225, 0.32)";
+    ctxG.beginPath();
+    ctxG.moveTo(points[0].x, points[0].y);
+    ctxG.lineTo(points[1].x, points[1].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      if (radii[i - 1] < VISIBLE_R) break;
+      ctxG.moveTo(points[i].x, points[i].y);
+      ctxG.lineTo(points[i + 1].x, points[i + 1].y);
+    }
+    ctxG.stroke();
+
+    ctxG.strokeStyle = "rgba(45, 226, 160, 0.65)";
+    ctxG.lineWidth = 2;
+    ctxG.setLineDash([3, 6]);
+    ctxG.beginPath();
+    ctxG.moveTo(p.cx, p.cy);
+    ctxG.lineTo(jup.x, jup.y);
+    ctxG.stroke();
+    ctxG.restore();
+
+    glow(ctxG, sgx, sgy, 10, 38, C.sunGlow, "rgba(244, 208, 63, 0)");
+    disc(ctxG, sgx, sgy, 12, C.sun);
+
+    for (let i = 1; i < points.length - 1; i++) {
+      if (radii[i - 1] < VISIBLE_R) break;
+      disc(ctxG, points[i].x, points[i].y, 4.2, "#5A6270");
+    }
+
+    glow(ctxG, p.cx, p.cy, 7, 24, "rgba(77, 208, 225, 0.22)", "rgba(77, 208, 225, 0)");
+    disc(ctxG, p.cx, p.cy, 9, C.earth);
+
+    disc(ctxG, mx, my, 4.2, C.moon);
+
+    glow(ctxG, jup.x, jup.y, 9, 24, "rgba(236, 72, 153, 0.28)", "rgba(236, 72, 153, 0)");
+    disc(ctxG, jup.x, jup.y, 11, C.jupiter);
+
+    // EARTH is at center — labeling it would collide with the SUN label
+    // when Sun's orbit phase puts it near Earth. Identified by legend.
+    label(ctxG, "SUN", sgx + 18, sgy - 18, C.ink, 18);
+    label(ctxG, "JUPITER", jup.x + 18, jup.y - 18, C.ink, 18);
+    label(ctxG, "deferent", p.cx + p.jupR * 0.71 + 8, p.cy - p.jupR * 0.71 - 4, C.muted, 15, 400);
+    const labelLimit = Math.min(orders, 3);
+    for (let i = 0; i < labelLimit; i++) {
+      if (radii[i] < VISIBLE_R + 8) break;
+      const center = points[i + 1];
+      const text = orders === 1 ? "epicycle" : ordinal(i + 1) + " epicycle";
+      label(ctxG, text, center.x + 14, center.y + 22, C.muted, 15, 400);
+    }
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (state.playing) state.t += dt * state.speed * (2 * Math.PI / 5);
+    drawHelio();
+    drawGeo();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  const playBtn = document.getElementById("playBtn");
+  playBtn.addEventListener("click", () => {
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? "Pause" : "Play";
+  });
+  const DEFAULTS = {
+    speed: 4,
+    ratio: 12,
+    orders: 1,
+    epicycleScale: 1,
+  };
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    Object.entries(DEFAULTS).forEach(([id, value]) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event("input"));
+    });
+    state.t = 0;
+    state.geoTrail = [];
+    state.playing = true;
+    playBtn.textContent = "Pause";
+  });
+
+  function bindRange(id, valId, transform, format, onChange) {
+    const el = document.getElementById(id);
+    const out = document.getElementById(valId);
+    const apply = () => {
+      const raw = parseFloat(el.value);
+      const v = transform(raw);
+      onChange(v);
+      out.textContent = format(v);
+    };
+    el.addEventListener("input", apply);
+    apply();
+  }
+
+  const SPEED_STOPS = [0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  bindRange("speed", "speedVal",
+    (v) => SPEED_STOPS[Math.round(v)],
+    (v) => v + "×",
+    (v) => { state.speed = v; });
+
+  bindRange("ratio", "ratioVal",
+    (v) => Math.round(v),
+    (v) => v + " : 1",
+    (v) => { state.ratio = v; state.geoTrail = []; });
+
+  bindRange("orders", "ordersVal",
+    (v) => Math.round(v),
+    (v) => ordinal(v),
+    (v) => { state.orders = v; state.geoTrail = []; });
+
+  bindRange("epicycleScale", "epicycleScaleVal",
+    (v) => v,
+    (v) => v.toFixed(2) + "×",
+    (v) => { state.epicycleScale = v; state.geoTrail = []; });
+})();
+</script>
+</body>
+</html>
