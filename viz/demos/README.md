@@ -1,6 +1,6 @@
 # Demo videos
 
-Drop your ten demo recordings here with these exact filenames so the
+Drop your demo recordings here with these exact filenames so the
 deck picks them up automatically:
 
 | Slide | File              | Demo                                          |
@@ -10,11 +10,11 @@ deck picks them up automatically:
 |  21   | `demo-03.mp4`     | Starting governance on a new model            |
 |  23   | `demo-04.mp4`     | Governed agents inside Excel                  |
 |  25   | `demo-05.mp4`     | Excel itself, as a governed model (Part 1)    |
-|  27   | `demo-06.mp4`     | Excel itself, as a governed model (Part 2)    |
-|  29   | `demo-07.mp4`     | Customizing a policy                          |
-|  31   | `demo-08.mp4`     | Compliance status, at a glance                |
-|  33   | `demo-09.mp4`     | Generating documentation, automatically       |
-|  35   | `demo-10.mp4`     | Keeping the human in the loop                 |
+|  26   | `demo-05b.mp4`    | Excel itself, as a governed model (Part 2)    |
+|  28   | `demo-06.mp4`     | Customizing a policy                          |
+|  30   | `demo-07.mp4`     | Compliance status, at a glance                |
+|  32   | `demo-08.mp4`     | Generating documentation, automatically       |
+|  34   | `demo-09.mp4`     | Keeping the human in the loop                 |
 
 ## Required encoding
 
@@ -30,7 +30,8 @@ deck picks them up automatically:
 ## Size budget
 
 GitHub Pages caps each file at **100 MB** and each repo at **1 GB**.
-For 19 minutes total across 10 clips, target around **60–75 MB per file**
+For 19 minutes total across 10 clips (demo 5 is split into two halves),
+target around **60–75 MB per file**
 (roughly 5 Mbps at 1080p), which leaves comfortable headroom.
 
 If a clip won't fit, re-encode it with HandBrake's "Web Optimized" toggle
